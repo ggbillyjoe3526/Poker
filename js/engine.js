@@ -66,8 +66,10 @@ async function playHand(t,io){
     await collectBets(t,io);
     if(!t.runout&&inHandList(t).length>=2&&canActList(t).length<=1){t.runout=true;await io.runout?.();}
     t.street=st;
-    for(const k of STREET_CARDS[st])t.board.push(t.boardCards[k]);
-    await io.street?.(st);
+    const cards=STREET_CARDS[st].map(k=>t.boardCards[k]);
+    await io.deal?.(st,cards);        // the cards are on their way but not yet part of the board…
+    t.board.push(...cards);
+    await io.street?.(st);            // …and now they are
     if(!t.runout&&canActList(t).length>=2){
       t.currentBet=0;t.minRaise=t.bb;t.raiseId++;t.streetRaises=0;
       await io.newRound?.();

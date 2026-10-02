@@ -29,3 +29,13 @@ test('a seed deals the same cards whatever the players decide',async()=>{
   const passive=await decks(()=>({type:'call'})),ai=await decks((t,p,o)=>E.aiDecide(t,p,o));
   assert.deepEqual(passive,ai);
 });
+
+test('old seeds still deal the cards they always did',async()=>{
+  // set up exactly as the browser's newRun does; these values come from the game before the engine split
+  const rng=E.mulberry32(4242),roster=E.shuffle(E.ROSTER.slice(),rng).slice(0,5);
+  const t=E.initTable({},[{name:'You',ch:E.YOU_CH}].concat(roster.map(ch=>({name:ch.name,ch}))),rng,E.mulberry32(4242^0x5bd1e995));
+  assert.deepEqual(roster.map(ch=>ch.id),['michael','john','emma','tom','grace']);
+  const decks=[];
+  for(let h=0;h<3;h++){await E.playHand(t,{decide:()=>({type:'fold'})});if(h===0)assert.equal(t.dealer,2);decks.push(t.deck.slice(0,12).join());}
+  assert.deepEqual(decks,['5,21,34,47,30,35,13,20,51,9,25,11','33,2,1,49,23,3,12,6,42,50,47,20','15,48,9,10,25,6,33,36,12,0,45,20']);
+});

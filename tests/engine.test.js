@@ -9,9 +9,10 @@ function seated(stacks,prevBB){
   return t;
 }
 // plays one hand where each decision comes from `script` in turn; returns what each actor was offered
-async function play(t,script){
+// (extra io hooks can be passed in to watch the hand)
+async function play(t,script,io={}){
   const seen=[];
-  await E.playHand(t,{decide:(p,o)=>{
+  await E.playHand(t,{...io,decide:(p,o)=>{
     seen.push({id:p.id,street:t.street,...o});
     if(!script.length)throw new Error(`script ran out when seat ${p.id} had to act`);
     return script.shift();
@@ -84,6 +85,22 @@ test('a short all-in raise does not reopen the betting for players who already a
   assert.equal(total(t),3130);
 });
 
+test('every street after the flop opens with a minimum bet of one big blind',async()=>{
+  const t=seated([1500,1500,1500],0),seen=await play(t,[raise(100),call,call, ...Array(9).fill(check)]);
+  const flop=seen[3];
+  assert.deepEqual([flop.street,flop.id,flop.toCall,flop.minTo],[1,0,0,20]);
+});
+
+test('nobody can raise when everyone else is all in, and the board then runs out once',async()=>{
+  // the button and the small blind are all in for 100 each; the big blind can only call or fold
+  let runouts=0;
+  const t=seated([100,1500,100],0),seen=await play(t,[allin,allin,call],{runout:()=>{runouts++;}});
+  assert.deepEqual([seen[2].id,seen[2].toCall,seen[2].canRaise],[1,80,false]);
+  assert.equal(runouts,1);
+  assert.equal(t.board.length,5);
+  assert.equal(total(t),1700);
+});
+
 test('when everyone folds, the big blind wins the blinds',async()=>{
   const t=seated([1500,1500,1500],0);
   await play(t,[fold,fold]);
@@ -128,6 +145,9 @@ test('a split pot gives the odd chip to the winner closest left of the button',(
   const t=E.table(4);t.dealer=2;
   const pays=E.splitPot(t,25,[t.players[1],t.players[3]]).map(([w,a])=>[w.id,a]);
   assert.deepEqual(pays,[[3,13],[1,12]]);
+  // the button itself is last in line for the odd chip
+  t.dealer=1;
+  assert.deepEqual(E.splitPot(t,25,[t.players[1],t.players[2]]).map(([w,a])=>[w.id,a]),[[2,13],[1,12]]);
 });
 
 test('when the board plays, everyone still in splits the pot',async()=>{
@@ -142,10 +162,10 @@ test('when the board plays, everyone still in splits the pot',async()=>{
 /* ---------------- eliminations ---------------- */
 test('players busting in the same hand are placed by the stack they started it with',()=>{
   const t=E.table(4);E.startHand(t);
-  t.players[1].startChips=500;t.players[2].startChips=200;
+  t.players[1].startChips=200;t.players[2].startChips=500; // the later seat started with more
   t.players[1].chips=0;t.players[2].chips=0;
   const out=E.eliminate(t);
-  assert.deepEqual(out.map(p=>[p.id,p.place]),[[1,3],[2,4]]);
+  assert.deepEqual(out.map(p=>[p.id,p.place]),[[2,3],[1,4]]);
   assert.ok(out.every(p=>p.out));
   assert.equal(E.aliveList(t).length,2);
 });

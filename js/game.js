@@ -55,7 +55,8 @@ const IO={
   action:showAction,
   collect:showCollect,
   runout:showRunout,
-  street:dealStreet,
+  deal:dealStreet,
+  street:showStreet,
   async newRound(){G.players.forEach(p=>{if(!p.folded&&!p.allIn)clearTag(p);});},
   async resolve(){setActive(-1);setWaitText('');$('#hb-eq').textContent='';G.handWon=0;G.humanWonPot=false;G.beaten=new Set();},
   win:showWin,
@@ -98,16 +99,18 @@ async function showCollect(bettors){
   SND.chips(5);await wait(420);
   setPot(potTotal(G));
 }
-async function dealStreet(st){
+async function dealStreet(st,cards){
   const idx=STREET_CARDS[st];
   if(G.runout)await wait(st===1?400:850);
-  for(const k of idx){
-    const e=mkCard(G.board[k],'md');placeCard(e,LAY.deck[0],LAY.deck[1],0,1);G.boardEls[k]=e;
+  for(const [i,k] of idx.entries()){
+    const e=mkCard(cards[i],'md');placeCard(e,LAY.deck[0],LAY.deck[1],0,1);G.boardEls[k]=e;
     moveCard(e,LAY.board[k][0],LAY.board[k][1],0,1,320);SND.deal();await wait(95);
   }
   await wait(280);
   for(const k of idx){G.boardEls[k].classList.add('up');SND.flip();await wait(st===1?130:60);}
   await wait(300);
+}
+async function showStreet(st){
   log(`${['','Flop','Turn','River'][st]}: ${G.board.map(cardStr).join(' ')}`,'sys');
   updateHandBox();if(G.runout)updateEquityTags();
   const h=P(0);if(!h.folded&&!h.out&&G.board.length===5)trackBest(h);
@@ -248,8 +251,8 @@ async function levelUp(){
 }
 async function endOfHand(){
   const h=P(0),busted=eliminate(G);
-  for(const p of busted){
-    if(p.isHuman)continue;
+  for(const p of G.players){ // announced in seat order
+    if(p.isHuman||!busted.includes(p))continue;
     clearTag(p);updateSeat(p);say(p,'bust',1,true);SND.ko();
     if(G.beaten.has(p.id))G.stats.knockouts++;
     log(`${p.name} is eliminated! (#${p.place})`,'sys');

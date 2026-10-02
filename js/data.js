@@ -1,5 +1,5 @@
 'use strict';
-const START_STACK=1500, HANDS_PER_LEVEL=6, NSEATS=6;
+const START_STACK=1500, HANDS_PER_LEVEL=6;
 const BLINDS=[[10,20],[15,30],[25,50],[40,80],[60,120],[100,200],[150,300],[250,500],[400,800],[600,1200],[1000,2000],[1500,3000],[2500,5000],[4000,8000]];
 
 // Short, neutral table talk shared by every opponent.
