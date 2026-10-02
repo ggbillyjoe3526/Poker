@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All-In Poker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <div id="shaker">
+      <div id="table"><div class="felt"></div></div>
+      <div id="slots"></div>
+      <div id="deck"><div class="deck-card"></div><div class="deck-card"></div></div>
+      <div id="pot"><div class="pot-inner"><span class="pot-label">Pot</span><span class="pot-amt" id="pot-amt">0</span></div><div id="pot-chips"></div></div>
+      <div id="bets"></div>
+      <div id="cards"></div>
+      <div id="seats"></div>
+      <div id="flyers"></div>
+      <div id="dealer-btn">D</div>
+
+      <div id="hud-left">
+        <div class="lvl-box">
+          <div class="lvl-top"><span class="lvl-label">Level</span><span class="lvl-num" id="hud-level">1</span><span class="lvl-blinds" id="hud-blinds">10 / 20</span></div>
+          <div class="lvl-bar"><div class="lvl-fill" id="hud-fill"></div></div>
+          <div class="lvl-next" id="hud-next">Blinds up in 6 hands</div>
+        </div>
+        <div class="hud-meta"><span id="hud-hand">Hand #1</span><span id="hud-left-count">6 left</span><span id="hud-seed"></span></div>
+      </div>
+
+      <div id="hud-right">
+        <button class="hbtn" id="h-settings" title="Settings, sound, help and new game">⚙&nbsp; Menu</button>
+      </div>
+
+      <div id="log"></div>
+
+      <div id="hand-box">
+        <div class="hb-label">Your hand</div>
+        <div class="hb-name" id="hb-name">—</div>
+        <div class="hb-eq" id="hb-eq"></div>
+      </div>
+
+      <div id="human-avatar"><div class="portrait" id="hum-portrait"></div></div>
+      <div id="human-plate"><span class="hp-name">You</span><span class="hp-stack" id="hp-stack">1,500</span><span class="hp-tag" id="hp-tag"></span></div>
+
+      <div id="action-panel" class="off">
+        <div class="ap-bg"></div>
+        <div class="ap-head"><span class="ap-turn">Your move</span><span class="ap-info" id="ap-info"></span></div>
+        <div class="ap-sizer" id="ap-sizer">
+          <div class="ap-presets">
+            <button data-p="min">Min</button><button data-p="0.5">½ Pot</button><button data-p="0.75">¾ Pot</button><button data-p="1">Pot</button><button data-p="max">Max</button>
+          </div>
+          <div class="ap-slider-row"><input type="range" id="ap-slider" min="0" max="100" step="1" value="0"><div class="ap-amt" id="ap-amt">0</div></div>
+        </div>
+        <div class="ap-btns">
+          <button class="btn fold" id="b-fold"><span>Fold</span><kbd>F</kbd></button>
+          <button class="btn call" id="b-call"><span>Check</span><kbd>C</kbd></button>
+          <button class="btn raise" id="b-raise"><span>Raise</span><kbd>R</kbd></button>
+          <button class="btn allin" id="b-allin"><span>All in</span><kbd>A</kbd></button>
+        </div>
+        <div class="ap-wait" id="ap-wait">Waiting…</div>
+        <button class="ap-pre" id="ap-pre" title="Pre-select: check if free, otherwise fold">☐ Check / Fold</button><button class="ap-pre skip" id="ap-skip">⏩ Skip hand</button>
+      </div>
+
+      <div id="banner"><div class="banner-stripe"></div><div class="banner-content"><div class="banner-text"></div><div class="banner-sub"></div></div></div>
+
+      <div class="overlay" id="ov-title"></div>
+      <div class="overlay" id="ov-intro"></div>
+      <div class="overlay" id="ov-recap"></div>
+      <div class="overlay" id="ov-help"></div>
+      <div class="overlay" id="ov-settings"></div>
+      <div class="overlay" id="ov-pause"><div class="ov-dim"></div><div class="pause-box"><div class="pause-t">Paused</div><div class="pause-s">Click or press P to resume</div></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/portrait.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
