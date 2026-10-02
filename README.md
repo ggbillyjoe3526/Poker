@@ -10,11 +10,13 @@ Open `index.html` in any modern browser. There is nothing to install and no buil
 | --- | --- |
 | F | Fold |
 | C | Check or call |
+| Space | Check (never calls a bet) |
 | R | Bet or raise the amount on the slider |
 | A | All in (press twice to confirm with a big stack) |
-| ↑ ↓ | Change the bet size |
+| ↑ ↓ ← → | Change the bet size (or scroll on the slider) |
 | P | Pause |
 | H | How to play |
+| Esc | Close menus |
 
 The menu (top right) has the light/dark theme, sound, game speed, win-odds display and a reduced-motion option. Only these preferences are saved; a game in progress is not.
 

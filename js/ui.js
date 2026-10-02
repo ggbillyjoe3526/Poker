@@ -233,7 +233,7 @@ function showRecap(win){
     return `<div class="rs-row ${p.isHuman?'me':''} ${p.out?'out':''}"><div class="rs-pl">${p.out||p.isHuman?'#'+pl:'—'}</div><div class="rs-pt">${PORTRAIT.html(p.ch)}</div><div class="rs-nm">${p.name}</div><div class="rs-ch">${p.out?'Out':fmt(p.chips)}</div></div>`;}).join('')}</div></div></div>
   <div class="rc-foot"><button class="btn raise big" id="rc-new">New game</button><button class="btn call" id="rc-same">Same opponents again</button></div></div>`;
   ov.classList.add('show');
-  if(win)SND.win(true);else SND.bust();
+  if(win)SND.win();else SND.bust();
   $('#rc-new').onclick=()=>{SND.click();newRun();};
   $('#rc-same').onclick=()=>{SND.click();newRun(G.seed);};
 }

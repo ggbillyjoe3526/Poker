@@ -1,7 +1,7 @@
 'use strict';
 /* Sound effects only, synthesized with WebAudio (no music). */
 const SND=(function(){
-  const S={ctx:null,on:true,sfxOn:true,sfxVol:0.8};
+  const S={ctx:null,sfxOn:true,sfxVol:0.8};
   const mtof=m=>440*Math.pow(2,(m-69)/12);
   let noiseBuf=null;
 
@@ -16,9 +16,9 @@ const SND=(function(){
     const nd=noiseBuf.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
     S.apply();
   };
-  S.apply=function(){if(S.ctx)S.sBus.gain.setTargetAtTime(S.on&&S.sfxOn?S.sfxVol:0,S.ctx.currentTime,0.05);};
+  S.apply=function(){if(S.ctx)S.sBus.gain.setTargetAtTime(S.sfxOn?S.sfxVol:0,S.ctx.currentTime,0.05);};
 
-  function ok(){return S.ctx&&S.on&&S.sfxOn;}
+  function ok(){return S.ctx&&S.sfxOn;}
   function env(g,t,a,peak,d){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+a+d);}
   function tone(f,t,dur,v,type='sine',a=0.003){const c=S.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f;env(g,t,a,v,dur);o.connect(g);g.connect(S.sBus);o.start(t);o.stop(t+a+dur+0.05);return o;}
   function noise(t,dur,type,freq,q,v,a=0.002){
