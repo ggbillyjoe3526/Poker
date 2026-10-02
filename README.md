@@ -49,7 +49,7 @@ The tests use Node's built-in test runner (Node 18 or newer) and need no package
 npm test
 ```
 
-They cover hand ranking, blinds and the dead button, betting rules such as minimum and incomplete raises, side pots and split pots, eliminations, and full AI-only tournaments that check chips are conserved and seeds replay exactly.
+They cover hand ranking, blinds and the dead button, betting rules such as minimum and incomplete raises and short all-in blinds, side pots and split pots, eliminations, and full AI-only tournaments that check chips are conserved and seeds replay exactly.
 
 ## Custom avatars
 

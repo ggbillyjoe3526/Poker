@@ -101,6 +101,20 @@ test('nobody can raise when everyone else is all in, and the board then runs out
   assert.equal(total(t),1700);
 });
 
+test('a big blind that is short and all in still sets a full big blind to call',async()=>{
+  const t=seated([1500,15,1500],0),seen=await play(t,[call,call, ...Array(6).fill(check)]);
+  assert.ok(t.players[1].allIn);
+  assert.deepEqual([seen[0].id,seen[0].toCall,seen[1].toCall],[2,20,10]);
+  assert.equal(total(t),3015);
+});
+
+test('new street cards join the board only after io.deal has shown them',async()=>{
+  const t=seated([1500,1500],0),dealt=[];
+  await play(t,[call,check, ...Array(6).fill(check)],{deal:(st,cards)=>{dealt.push([st,t.board.length,cards.length]);}});
+  assert.deepEqual(dealt,[[1,0,3],[2,3,1],[3,4,1]]);
+  assert.equal(t.board.length,5);
+});
+
 test('when everyone folds, the big blind wins the blinds',async()=>{
   const t=seated([1500,1500,1500],0);
   await play(t,[fold,fold]);
