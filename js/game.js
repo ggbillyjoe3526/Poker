@@ -21,13 +21,6 @@ function prevAlive(i){for(let k=1;k<=NSEATS;k++){const j=(i-k+NSEATS)%NSEATS;if(
 function potTotal(){return G.pot+G.players.reduce((a,p)=>a+p.bet,0);}
 function seatXY(p){return p.isHuman?LAY.human:LAY.seat[p.id];}
 
-function applySkin(){} // table colours now come from the light/dark theme
-function updateIntensity(){
-  const anyAllIn=inHandList().some(p=>p.allIn)&&inHandList().length>=2;
-  const v=G.runout||anyAllIn?2:potTotal()>=15*G.bb?1:0;
-  SND.setIntensity(v);FX.spinTarget=[1,1.6,2.4][v];
-}
-
 /* ---------------- GAME ---------------- */
 async function newRun(seed){
   cancelAll();G.runId++;
@@ -36,16 +29,16 @@ async function newRun(seed){
   G.players=[{id:0,isHuman:true,name:'You',ch:YOU_CH}].concat(roster.map((ch,k)=>({id:k+1,isHuman:false,name:ch.name,ch})));
   G.players.forEach(p=>Object.assign(p,{chips:START_STACK,cards:[],cardEls:[],bet:0,total:0,folded:false,allIn:false,out:false,lastRaiseId:-1,place:0}));
   Object.assign(G,{handNo:0,level:0,dealer:-1,bbSeat:null,pot:0,board:[],boardCards:[],boardEls:[],street:0,currentBet:0,minRaise:0,raiseId:0,
-    bossShown:false,ffwd:false,runout:false,humanTurn:false,paused:false,humanPlace:0,beaten:new Set(),
+    ffwd:false,runout:false,humanTurn:false,paused:false,humanPlace:0,beaten:new Set(),
     stats:{hands:0,won:0,biggestPot:0,bestScore:-1,bestCards:null,bestBluff:null,knockouts:0,peak:START_STACK}});
   [G.sb,G.bb]=BLINDS[0];
   document.body.classList.remove('title');
   hideOverlays();resetTableUI();buildSeats();G.players.forEach(p=>updateSeat(p));updateHUD();updateHandBox();
-  $('#log').innerHTML='';SND.setIntensity(0);FX.spinTarget=1;applySpeedVar();
+  $('#log').innerHTML='';applySpeedVar();
   try{await runLoop();}catch(e){if(!(e instanceof Abort))console.error(e);}
 }
 function resetTableUI(){
-  clearCards();buildBets();buildSlots();potShown=0;setPot(0,false);
+  clearCards();buildBets();buildSlots();setPot(0);
   $('#banner').className='';$('#dealer-btn').style.display='none';hideActionPanel();setWaitText('');setActive(-1);
   $$('.eqtag').forEach(e=>e.remove());$('#hp-tag').className='hp-tag';$('#hb-eq').textContent='';
 }
@@ -82,8 +75,8 @@ async function playHand(){
   Object.assign(G,{ffwd:false,ffwdMul:2.4,autoCF:false,runout:false,pot:0,board:[],boardEls:[],streetRaises:0,street:0});
   applySpeedVar();
   for(const p of G.players){Object.assign(p,{startChips:p.chips,cards:[],cardEls:[],bet:0,total:0,folded:p.out,allIn:false,lastRaiseId:-1,bluffing:false,shown:false,score:0});
-    if(!p.out)setExpr(p,'neutral',false);updateSeat(p);setBet(p.id,0);clearTag(p);}
-  setPot(0,false);updateHandBox();G.stats.hands++;
+    updateSeat(p);setBet(p.id,0);clearTag(p);}
+  setPot(0);updateHandBox();G.stats.hands++;
   if(lvlUp)await levelUp();
   const {sb:sbI,bb:bbI,hu}=positions();
   moveDealer(G.dealer);
@@ -102,7 +95,6 @@ async function playHand(){
   if(sbI>=0)await postBlind(P(sbI),G.sb,'SB');else log('Dead small blind this hand');
   await postBlind(P(bbI),G.bb,'BB');
   G.currentBet=G.bb;
-  updateIntensity();
   await bettingRound(hu?sbI:nextAlive(bbI));
   for(let st=1;st<=3;st++){
     if(inHandList().length<=1)break;
@@ -121,7 +113,7 @@ async function playHand(){
 }
 async function checkRunout(){
   if(G.runout||inHandList().length<2||canActList().length>1)return;
-  G.runout=true;updateIntensity();updateHandBox();
+  G.runout=true;updateHandBox();
   setWaitText('ALL IN — RUNNING IT OUT');
   await revealHands();
   await banner('All in','No more betting — running out the board','',650);
@@ -130,9 +122,9 @@ async function checkRunout(){
 function dealHole(p,r){
   const e=mkCard(p.cards[r],p.isHuman?'lg':'sm');placeCard(e,LAY.deck[0],LAY.deck[1],0,p.isHuman?0.87:1.68);
   const[x,y,rot]=LAY.cards[p.id][r];if(p.isHuman)e.classList.add('hum');
-  moveCard(e,x,y,rot,1,380,50).then(()=>squash(e));p.cardEls[r]=e;SND.deal();
+  moveCard(e,x,y,rot,1,380);p.cardEls[r]=e;SND.deal();
 }
-async function flipHuman(){for(const e of P(0).cardEls){e.classList.add('up');squash(e);SND.flip();await wait(140);}await wait(200);}
+async function flipHuman(){for(const e of P(0).cardEls){e.classList.add('up');SND.flip();await wait(140);}await wait(200);}
 function put(p,amt){amt=Math.min(amt,p.chips);p.chips-=amt;p.bet+=amt;p.total+=amt;if(p.chips===0)p.allIn=true;return amt;}
 async function postBlind(p,amt,label){
   const a=put(p,amt);showTag(p,p.allIn?'ALL IN':`${label} ${fmt(a)}`,p.allIn?'allin':'blind');
@@ -147,15 +139,14 @@ async function collectBets(){
 }
 async function dealStreet(st){
   const idx=st===1?[0,1,2]:st===2?[3]:[4];
-  if(G.runout){SND.drum(st===1?0.5:0.9);await wait(st===1?400:850);}
+  if(G.runout)await wait(st===1?400:850);
   for(const k of idx){
     const c=G.boardCards[k];G.board.push(c);
     const e=mkCard(c,'md');placeCard(e,LAY.deck[0],LAY.deck[1],0,1);G.boardEls[k]=e;
-    moveCard(e,LAY.board[k][0],LAY.board[k][1],0,1,320,30);SND.deal();await wait(95);
+    moveCard(e,LAY.board[k][0],LAY.board[k][1],0,1,320);SND.deal();await wait(95);
   }
   await wait(280);
-  for(const k of idx){G.boardEls[k].classList.add('up');squash(G.boardEls[k]);SND.flip();await wait(st===1?130:60);}
-  if(G.runout&&st>=2){const[x,y]=LAY.board[idx[0]];FX.burst(x,y,{count:24,colors:['#fff','#ffc83d'],speed:6});FX.shake(0.4);}
+  for(const k of idx){G.boardEls[k].classList.add('up');SND.flip();await wait(st===1?130:60);}
   await wait(300);
   log(`${['','Flop','Turn','River'][st]}: ${G.board.map(cardStr).join(' ')}`,'sys');
   updateHandBox();if(G.runout)updateEquityTags();
@@ -174,7 +165,6 @@ async function bettingRound(start){
     const p=P(found);
     if(canActList().length===1&&p.bet>=G.currentBet)return;
     await takeTurn(p);
-    updateIntensity();
     i=(found+1)%NSEATS;
   }
 }
@@ -190,14 +180,12 @@ async function takeTurn(p){
       G.autoCF=false;act=toCall===0?{type:'check'}:{type:'fold'};await wait(250);
     }else{
       G.humanTurn=true;SND.turn();setWaitText('');
-      if(toCall>potTotal()*0.5&&toCall>G.bb*4)setExpr(p,'think');
       try{act=await waitFor(res=>{showActionPanel(o,res);return()=>hideActionPanel();});}
       finally{G.humanTurn=false;updateWaitControls();}
     }
   }else{
     setWaitText(`${p.name} IS THINKING…`);setThinking(p,true);
     act=aiDecide(p,o);
-    if(o.toCall>potTotal()*0.45&&p.lastR<1.1)setExpr(p,'sweat');else if(Math.random()<.3)setExpr(p,'think');
     await wait(450+Math.random()*650);setThinking(p,false);setWaitText('');
   }
   await applyAction(p,act,o);
@@ -209,16 +197,16 @@ async function applyAction(p,act,o){
   const who=p.isHuman?'You':p.name;
   switch(act.type){
     case 'fold':{
-      p.folded=true;showTag(p,'FOLD','fold');SND.fold();log(`${who} fold${p.isHuman?'':'s'}`);setExpr(p,'disgust');
+      p.folded=true;showTag(p,'FOLD','fold');SND.fold();log(`${who} fold${p.isHuman?'':'s'}`);
       if(p.isHuman){p.cardEls.forEach(e=>{e.classList.add('dim');moveCard(e,e._x,e._y+30,e._rot,0.92,300);});G.ffwd=inHandList().length>1;applySpeedVar();setWaitText('FOLDED · FAST-FORWARDING');}
       else{if(o.toCall>potTotal()*0.3)say(p,'fold',0.4);p.cardEls.forEach(e=>{moveCard(e,800,420,e._rot+90,0.6,380);e.animate([{opacity:1},{opacity:0}],{duration:380/spd(),fill:'forwards'});});}
       updateSeat(p);updateHandBox();await wait(260);break;}
-    case 'check':showTag(p,'CHECK','check');SND.check();log(`${who} check${p.isHuman?'':'s'}`);if(p.expr!=='neutral')setExpr(p,'neutral');await wait(200);break;
+    case 'check':showTag(p,'CHECK','check');SND.check();log(`${who} check${p.isHuman?'':'s'}`);await wait(200);break;
     case 'call':{
       const a=put(p,Math.min(o.toCall,p.chips));showTag(p,p.allIn?'ALL IN':`CALL ${fmt(a)}`,p.allIn?'allin':'call');
       log(`${who} call${p.isHuman?'':'s'} ${fmt(a)}${p.allIn?' (all-in)':''}`);
       flyChips(seatXY(p),LAY.bet[p.id],a,3,340);SND.chips(3);
-      if(p.allIn){setExpr(p,'allin');say(p,'allin',0.6);}else{setExpr(p,!p.isHuman&&p.lastR>1.3?'confident':'neutral');say(p,'call',0.18);}
+      if(p.allIn)say(p,'allin',0.6);else say(p,'call',0.18);
       await wait(300);setBet(p.id,p.bet,true);break;}
     case 'raise':case 'allin':{
       const to=act.type==='allin'?p.bet+p.chips:clamp(act.to,o.minTo,o.maxTo);
@@ -228,8 +216,7 @@ async function applyAction(p,act,o){
       showTag(p,label,p.allIn?'allin':'raise');
       log(`${who} ${p.allIn?'go'+(p.isHuman?'':'es')+' all in for '+fmt(p.bet):(prev===0?'bet':'raise'+(p.isHuman?'':'s')+' to')+' '+fmt(p.bet)}`);
       flyChips(seatXY(p),LAY.bet[p.id],p.bet,5,360);
-      if(p.allIn){SND.allin();FX.shake(0.6);const[x,y]=LAY.bet[p.id];FX.burst(x,y,{count:30,colors:['#ffc83d','#fff','#ff1f3d'],speed:7});}else SND.raise();
-      setExpr(p,p.allIn?'allin':'confident');if(p.allIn)say(p,'allin',0.75);
+      if(p.allIn){SND.allin();say(p,'allin',0.75);}else SND.raise();
       await wait(340);setBet(p.id,p.bet,true);break;}
   }
   p.lastRaiseId=G.raiseId;
@@ -241,7 +228,7 @@ function aiDecide(p,o){
   const A=p.ch.ai,bb=G.bb,st=G.street,R=Math.random;
   const nOpp=inHandList().length-1;
   const eq=equityVsRandom(p.cards,G.board,nOpp,st===0?260:320);
-  const rel=eq*(nOpp+1),noise=(R()-0.5)*0.3,r=rel+noise;p.lastR=r;p.bluffing=false;
+  const rel=eq*(nOpp+1),noise=(R()-0.5)*0.3,r=rel+noise;p.bluffing=false;
   const pot=potTotal(),toCall=o.toCall,stack=p.chips;
   const round=v=>Math.round(v/G.sb)*G.sb;
   const raiseTo=v=>{v=Math.max(round(v),o.minTo);if(v>=o.maxTo*0.8)return{type:'allin'};return{type:'raise',to:Math.min(v,o.maxTo)};};
@@ -322,19 +309,18 @@ function computePots(){
   if(total>acc&&pots.length)pots[pots.length-1].amount+=total-acc;
   return pots;
 }
-async function payTo(p,amount,big){
+async function payTo(p,amount){
   flyChips(LAY.pot,seatXY(p),amount,Math.min(10,4+Math.floor(amount/(G.bb*5))),520);SND.chips(6);
   await wait(520);p.chips+=amount;updateSeat(p,true);
   const[x,y]=floatSpot(p);floatText(x,y,'+'+fmt(amount));
   if(p.isHuman){G.handWon+=amount;G.stats.peak=Math.max(G.stats.peak,p.chips);}
-  if(big)FX.burst(x,y,{count:50,colors:['#ffc83d','#fff','#ff1f3d'],speed:10,type:'star'});
 }
 async function resolveHand(){
   setActive(-1);G.street=4;setWaitText('');$('#hb-eq').textContent='';G.handWon=0;G.humanWonPot=false;G.beaten=new Set();
   const cs=inHandList(),potSize=G.pot;
   if(cs.length===1){
     const w=cs[0];await wait(250);
-    showTag(w,'WINS','win');setExpr(w,'gloat');
+    showTag(w,'WINS','win');
     if(w.isHuman){
       const bluffDesc=G.board.length>=3?(()=>{const s=evalHand(w.cards.concat(G.board));return handCat(s)===0?describe(s):null;})():(equityVsRandom(w.cards,[],1,300)<0.47?preflopLabel(w.cards[0],w.cards[1]):null);
       if(bluffDesc&&potSize>=G.bb*4&&(!G.stats.bestBluff||potSize>G.stats.bestBluff.pot))G.stats.bestBluff={pot:potSize,desc:bluffDesc};
@@ -346,8 +332,8 @@ async function resolveHand(){
         showTag(w,'BLUFF!','bluff');say(w,'bluff',1,true);await wait(900);
       }else say(w,w.bluffing?'bluff':'win',0.45);
     }
-    G.pot=0;setPot(0,false);await payTo(w,potSize,w.isHuman&&potSize>=G.bb*20);
-    if(w.isHuman){G.stats.won++;SND.win(potSize>=G.bb*20);G.stats.biggestPot=Math.max(G.stats.biggestPot,potSize);}
+    G.pot=0;setPot(0);await payTo(w,potSize);
+    if(w.isHuman){G.stats.won++;SND.win();G.stats.biggestPot=Math.max(G.stats.biggestPot,potSize);}
   }else{
     cs.forEach(p=>clearTag(p));
     await revealHands();
@@ -357,17 +343,16 @@ async function resolveHand(){
     const pots=computePots(),contested=pots.filter(q=>q.eligible.length>1).length;
     for(let k=0;k<pots.length;k++){
       const pot=pots[k];if(pot.amount<=0)continue;
-      if(pot.eligible.length===1){const o=pot.eligible[0];G.pot-=pot.amount;setPot(G.pot,false);
+      if(pot.eligible.length===1){const o=pot.eligible[0];G.pot-=pot.amount;setPot(G.pot);
         const[x,y]=floatSpot(o);floatText(x,y-50,`Uncalled ${fmt(pot.amount)} returned`,'info');log(`Uncalled ${fmt(pot.amount)} returned to ${o.isHuman?'you':o.name}`);
-        await payTo(o,pot.amount,false);continue;}
+        await payTo(o,pot.amount);continue;}
       const best=Math.max(...pot.eligible.map(p=>p.score)),winners=pot.eligible.filter(p=>p.score===best);
       await showWinners(winners,pot,k>0?`Side pot ${k}`:(contested>1?'Main pot':''),pot.eligible);
     }
   }
-  G.pot=0;setPot(0,false);
+  G.pot=0;setPot(0);
   if(G.humanWonPot)G.stats.won++;
   G.stats.peak=Math.max(G.stats.peak,P(0).chips);
-  SND.setIntensity(0);FX.spinTarget=1;
   await wait(G.handWon>0||cs.length>1?1400:700);
 }
 async function showWinners(winners,pot,label,elig){
@@ -383,17 +368,14 @@ async function showWinners(winners,pot,label,elig){
   const sub=`${label?label+' · ':''}${describe(w0.score)} · ${fmt(pot.amount)}`;
   if(humanWins)elig.forEach(p=>G.beaten.add(p.id));
   log(`${split?'Split: ':''}${winners.map(w=>w.isHuman?'You':w.name).join(' & ')} win${winners.length>1||humanWins?'':'s'} ${fmt(pot.amount)} with ${describe(w0.score)}`);
-  winners.forEach(w=>{setExpr(w,'gloat');say(w,'win',0.6);showTag(w,'WINNER','win');});
-  elig.filter(p=>!winners.includes(p)).forEach(p=>{setExpr(p,p.allIn?'shock':'sweat');say(p,'lose',0.35);});
-  const big=humanWins&&(pot.amount>=G.bb*25||elig.some(p=>p.allIn));
-  if(humanWins){SND.win(big);if(big){FX.shake(1);FX.confetti();}}else if(elig.includes(P(0)))SND.lose();
-  const cat=handCat(w0.score);
-  if(cat>=6){FX.flash('#fff',0.5);FX.burst(800,420,{count:80,colors:['#ffc83d','#fff','#ff4fb8'],speed:13,type:'star'});}
-  await banner(title,sub,(humanWins?'gold':split?'dark':'')+(winners.some(w=>w.id>=2&&w.id<=4)?' low':' high'),cat>=5?1200:850); // sits above the board so the winning cards stay visible
+  winners.forEach(w=>{say(w,'win',0.6);showTag(w,'WINNER','win');});
+  elig.filter(p=>!winners.includes(p)).forEach(p=>say(p,'lose',0.35));
+  if(humanWins)SND.win();else if(elig.includes(P(0)))SND.lose();
+  await banner(title,sub,humanWins?'gold':'',handCat(w0.score)>=5?1200:850);
   const share=Math.floor(pot.amount/winners.length);let rem=pot.amount-share*winners.length;
-  G.pot-=pot.amount;setPot(Math.max(0,G.pot),false);
+  G.pot-=pot.amount;setPot(Math.max(0,G.pot));
   const ordered=winners.slice().sort((a,b)=>((a.id-G.dealer+NSEATS-1)%NSEATS)-((b.id-G.dealer+NSEATS-1)%NSEATS));
-  for(const w of ordered){const amt=share+(rem>0?1:0);if(rem>0)rem--;await payTo(w,amt,w.isHuman&&big);
+  for(const w of ordered){const amt=share+(rem>0?1:0);if(rem>0)rem--;await payTo(w,amt);
     if(w.isHuman)G.stats.biggestPot=Math.max(G.stats.biggestPot,pot.amount);}
   if(humanWins)G.humanWonPot=true;
   await wait(300);
@@ -414,16 +396,13 @@ async function endOfHand(){
   dying.forEach((p,i)=>p.place=survivors+1+i);
   for(const p of bustOpps)p.out=true;
   for(const p of bustOpps){
-    clearTag(p);setExpr(p,'shock');updateSeat(p);say(p,'bust',1,true);SND.ko();FX.shake(0.8);
-    const[x,y]=LAY.seat[p.id];FX.burst(x,y,{count:60,colors:['#ff1f3d','#fff','#000'],speed:11});
+    clearTag(p);updateSeat(p);say(p,'bust',1,true);SND.ko();
     if(G.beaten.has(p.id))G.stats.knockouts++;
     log(`${p.name} is eliminated! (#${p.place})`,'sys');
     await banner(`${p.name} is out`,`Finishes #${p.place}`,'',900);
-    setExpr(p,'disgust');
   }
   if(h.chips<=0&&!h.out){
-    h.out=true;G.humanPlace=h.place||aliveList().length+1;updateSeat(h);SND.bust();setExpr(h,'shock');
-    aliveList().forEach(p=>setExpr(p,'gloat'));
+    h.out=true;G.humanPlace=h.place||aliveList().length+1;updateSeat(h);SND.bust();
     await banner("You're out",`You finish #${G.humanPlace} of ${G.players.length}`,'',1300);
     showRecap(false);return 'over';
   }

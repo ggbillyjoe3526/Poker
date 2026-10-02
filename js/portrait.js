@@ -16,6 +16,6 @@ const PORTRAIT=(function(){
     +`<path class="av-hair" d="M35 50 Q28 72 31 96 L41 94 Q37 74 40 56Z M65 50 Q72 72 69 96 L59 94 Q63 74 60 56Z"/>`
     +`<path class="av-rim" d="M61 33 Q67 45 62 57" fill="none" stroke-width="1.6" stroke-linecap="round"/>`;
   function svg(ch){return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" class="avatar"><rect class="av-bg" width="100" height="100"/>${ch.fem?FEMALE:MALE}</svg>`;}
-  function html(ch){return ch.img?`<img class="pimg" src="${ch.img.replace('{expr}','neutral')}" alt="${ch.name||''}">`:svg(ch);}
+  function html(ch){return ch.img?`<img class="pimg" src="${ch.img}" alt="${ch.name||''}">`:svg(ch);}
   return {svg,html};
 })();

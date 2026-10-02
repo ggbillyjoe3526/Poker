@@ -11,7 +11,6 @@ function shuffle(a,r=RNG){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
-function seedCode(s){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let o='';let x=s>>>0;for(let i=0;i<6;i++){o+=A[x%32];x=Math.floor(x/32);}return o.slice(0,3)+'-'+o.slice(3);}
 
 /* ===== Cards ===== */
 // card = 0..51 ; rank = c%13 (0 = deuce .. 12 = ace) ; suit = c/13|0 (0♠ 1♥ 2♦ 3♣)

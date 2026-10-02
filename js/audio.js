@@ -17,7 +17,6 @@ const SND=(function(){
     S.apply();
   };
   S.apply=function(){if(S.ctx)S.sBus.gain.setTargetAtTime(S.on&&S.sfxOn?S.sfxVol:0,S.ctx.currentTime,0.05);};
-  S.setIntensity=function(){}; // kept so game code can call it; there is no music
 
   function ok(){return S.ctx&&S.on&&S.sfxOn;}
   function env(g,t,a,peak,d){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+a+d);}
@@ -34,7 +33,6 @@ const SND=(function(){
   S.fold=()=>{if(!ok())return;const t=S.ctx.currentTime;const f=noise(t,0.22,'bandpass',1600,1.2,0.25,0.03);f.frequency.exponentialRampToValueAtTime(300,t+0.25);};
   S.whoosh=()=>{if(!ok())return;const t=S.ctx.currentTime;const f=noise(t,0.2,'bandpass',600,1.4,0.15,0.05);f.frequency.exponentialRampToValueAtTime(2500,t+0.2);};
   S.click=()=>{if(!ok())return;tone(1400,S.ctx.currentTime,0.025,0.07,'triangle');};
-  S.hover=()=>{};
   S.turn=()=>{if(!ok())return;const t=S.ctx.currentTime;tone(mtof(76),t,0.3,0.1);tone(mtof(83),t+0.1,0.45,0.1);};
   S.raise=()=>{if(!ok())return;S.chips(5);};
   S.allin=()=>{if(!ok())return;S.chips(8);const t=S.ctx.currentTime;tone(mtof(64),t,0.4,0.1,'triangle');tone(mtof(71),t+0.08,0.5,0.1,'triangle');};
@@ -43,6 +41,5 @@ const SND=(function(){
   S.bust=()=>{if(!ok())return;const t=S.ctx.currentTime;[67,63,60].forEach((m,i)=>tone(mtof(m),t+i*0.18,0.35,0.08,'triangle'));};
   S.levelup=()=>{if(!ok())return;const t=S.ctx.currentTime;[72,79].forEach((m,i)=>tone(mtof(m),t+i*0.12,0.35,0.09,'triangle'));};
   S.ko=()=>{if(!ok())return;const t=S.ctx.currentTime;tone(mtof(55),t,0.4,0.12,'triangle');};
-  S.hit=()=>{};S.drum=()=>{};
   return S;
 })();

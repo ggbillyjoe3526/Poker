@@ -16,7 +16,8 @@ const LAY={
 const SIDE=['b','l','l','t','r','r'];
 function spd(){return (G.speed||1)*(G.ffwd?(G.ffwdMul||2.4):1);}
 function applySpeedVar(){document.documentElement.style.setProperty('--spd',String(spd()));}
-const calm=()=>FX.isCalm();
+const reduceMQ=matchMedia('(prefers-reduced-motion: reduce)');
+const calm=()=>!!(G.opt&&G.opt.calm)||reduceMQ.matches;
 
 /* ---------- stage fit ---------- */
 function fit(){const w=innerWidth,hh=innerHeight,k=Math.min(w/1600,hh/900);$('#stage').style.transform=`translate(${(w-1600*k)/2}px,${(hh-900*k)/2}px) scale(${k})`;}
@@ -34,7 +35,6 @@ function applyPrefs(){
   const o=G.opt;
   document.body.dataset.theme=o.theme==='auto'?(darkMQ.matches?'dark':'light'):o.theme;
   document.body.classList.toggle('calm',!!o.calm);
-  FX.calm=!!o.calm;
 }
 darkMQ.addEventListener&&darkMQ.addEventListener('change',()=>{if(G.opt&&G.opt.theme==='auto')applyPrefs();});
 
@@ -51,7 +51,6 @@ function moveCard(e,x,y,rot=0,sc=1,dur=360){
   return e.animate([{transform:`translate(${dx}px,${dy}px) rotate(${r0}deg) scale(${s0})`},{transform:`translate(0px,0px) rotate(${rot}deg) scale(${sc})`}],
     {duration:(calm()?160:dur)/spd(),easing:'cubic-bezier(.25,.8,.3,1)'}).finished.catch(()=>{});
 }
-function squash(){}
 function clearCards(){$('#cards').innerHTML='';$('#flyers').innerHTML='';}
 function buildSlots(){const s=$('#slots');s.innerHTML='';LAY.board.forEach(([x,y])=>{const e=h('div','slot');e.style.left=(x-52)+'px';e.style.top=(y-73)+'px';s.appendChild(e);});}
 
@@ -76,8 +75,7 @@ function floatText(x,y,text,cls=''){const e=h('div','float '+cls,text);e.style.l
 function floatSpot(p){if(p.isHuman)return[800,610];const[x,y]=LAY.bet[p.id];return[x,y-40];}
 
 /* ---------- pot ---------- */
-let potShown=0;
-function setPot(v){potShown=v;$('#pot-amt').textContent=fmt(v);$('#pot-chips').innerHTML='';}
+function setPot(v){$('#pot-amt').textContent=fmt(v);}
 
 /* ---------- seats ---------- */
 function buildSeats(){
@@ -90,7 +88,6 @@ function buildSeats(){
   }
   $('#hum-portrait').innerHTML=PORTRAIT.html(G.players[0].ch);
 }
-function setExpr(){} // avatars are neutral silhouettes; expressions are no longer drawn
 function updateSeat(p){
   if(p.isHuman){$('#hp-stack').textContent=p.out?'—':fmt(p.chips);return;}
   const s=p.el;if(!s)return;s.querySelector('.stk').textContent=p.out?'Out':fmt(p.chips);
@@ -126,7 +123,7 @@ function updateHUD(){
   const into=(G.handNo-1)%HANDS_PER_LEVEL,left=HANDS_PER_LEVEL-into-1;
   $('#hud-fill').style.width=((into+1)/HANDS_PER_LEVEL*100)+'%';
   $('#hud-next').textContent=G.level>=BLINDS.length-1?'Max level':left===0?'Blinds up next hand':`Blinds up in ${left} hand${left>1?'s':''}`;
-  $('#hud-hand').textContent='Hand #'+G.handNo;$('#hud-left-count').textContent=aliveList().length+' left';$('#hud-seed').textContent='';
+  $('#hud-hand').textContent='Hand #'+G.handNo;$('#hud-left-count').textContent=aliveList().length+' left';
 }
 // action log: the last 3 lines show; hover it to scroll back through the last 30 (hand history)
 function log(t,cls=''){const L=$('#log');const d=h('div',cls,t);L.appendChild(d);while(L.children.length>30)L.firstChild.remove();
@@ -141,7 +138,6 @@ function updateHandBox(){
 }
 
 /* ---------- banners (simple centred notice) ---------- */
-function ransom(text){return text;}
 async function banner(text,sub='',cls='',hold=900){
   const b=$('#banner');b.className='show '+cls;b.querySelector('.banner-text').textContent=text;
   const sb=b.querySelector('.banner-sub');sb.textContent=sub;sb.style.display=sub?'block':'none';
@@ -291,4 +287,3 @@ function showSettings(){
     ov.classList.remove('show');syncPause();savePrefs();newRun();};
 }
 function setSpeed(v){G.speed=v;applySpeedVar();}
-function syncHudButtons(){}
