@@ -1,13 +1,8 @@
 'use strict';
-/* ===== RNG (seeded per run) ===== */
+/* ===== RNG: seeded streams for anything that must replay, Math.random for cosmetics ===== */
 function mulberry32(a){return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
-let RNG=Math.random;
-function setSeed(s){RNG=mulberry32(s>>>0);}
-const rnd=()=>RNG();
-const rndInt=n=>Math.floor(RNG()*n);
-const pick=a=>a[rndInt(a.length)];
 const mpick=a=>a[Math.floor(Math.random()*a.length)];
-function shuffle(a,r=RNG){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmt=n=>Math.round(n).toLocaleString('en-US');
@@ -82,14 +77,14 @@ function preflopLabel(a,b){
 }
 
 /* ===== Equity (Monte Carlo) ===== */
-function equityVsRandom(hole,board,nOpp,iters){
+function equityVsRandom(hole,board,nOpp,iters,rng=Math.random){
   if(nOpp<=0) return 1;
   const used=new Set(hole.concat(board)); const deck=[];
   for(let c=0;c<52;c++) if(!used.has(c)) deck.push(c);
   const need=5-board.length, k=need+2*nOpp; let win=0;
   const my=hole.concat(board), op=new Array(7);
   for(let it=0;it<iters;it++){
-    for(let i=0;i<k;i++){const j=i+Math.floor(Math.random()*(deck.length-i));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
+    for(let i=0;i<k;i++){const j=i+Math.floor(rng()*(deck.length-i));const t=deck[i];deck[i]=deck[j];deck[j]=t;}
     const full=my.slice(); for(let i=0;i<need;i++) full.push(deck[i]);
     const ms=evalHand(full);
     let ties=0,lose=false;

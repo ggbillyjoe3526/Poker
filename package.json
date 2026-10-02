@@ -1,0 +1,8 @@
+{
+  "name": "all-in-poker",
+  "private": true,
+  "description": "No-Limit Texas Hold'em tournament in the browser",
+  "scripts": {
+    "test": "node --test"
+  }
+}

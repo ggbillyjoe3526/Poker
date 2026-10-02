@@ -123,7 +123,7 @@ function updateHUD(){
   const into=(G.handNo-1)%HANDS_PER_LEVEL,left=HANDS_PER_LEVEL-into-1;
   $('#hud-fill').style.width=((into+1)/HANDS_PER_LEVEL*100)+'%';
   $('#hud-next').textContent=G.level>=BLINDS.length-1?'Max level':left===0?'Blinds up next hand':`Blinds up in ${left} hand${left>1?'s':''}`;
-  $('#hud-hand').textContent='Hand #'+G.handNo;$('#hud-left-count').textContent=aliveList().length+' left';
+  $('#hud-hand').textContent='Hand #'+G.handNo;$('#hud-left-count').textContent=aliveList(G).length+' left';
 }
 // action log: the last 3 lines show; hover it to scroll back through the last 30 (hand history)
 function log(t,cls=''){const L=$('#log');const d=h('div',cls,t);L.appendChild(d);while(L.children.length>30)L.firstChild.remove();
@@ -133,7 +133,7 @@ function updateHandBox(){
   if(!p||p.out||p.cards.length<2){nm.textContent='—';eq.textContent='';return;}
   if(p.folded){nm.textContent='Folded';eq.textContent='';return;}
   nm.textContent=G.board.length<3?preflopLabel(p.cards[0],p.cards[1]):describe(evalHand(p.cards.concat(G.board)));
-  if(G.opt.odds&&!G.runout&&G.street<4){const n=inHandList().length-1;eq.textContent=n>0?`Win ≈ ${Math.round(equityVsRandom(p.cards,G.board,n,700)*100)}% vs ${n}`:'';}
+  if(G.opt.odds&&!G.runout&&G.street<4){const n=inHandList(G).length-1;eq.textContent=n>0?`Win ≈ ${Math.round(equityVsRandom(p.cards,G.board,n,700)*100)}% vs ${n}`:'';}
   else eq.textContent='';
 }
 
@@ -154,7 +154,7 @@ async function banner(text,sub='',cls='',hold=900){
 /* ---------- action panel ---------- */
 function showActionPanel(o,resolve){
   const p=G.players[0],ap=$('#action-panel');ap.classList.remove('off');ap.classList.add('on');
-  const pot=potTotal(),call=Math.min(o.toCall,p.chips);
+  const pot=potTotal(G),call=Math.min(o.toCall,p.chips);
   $('#ap-info').innerHTML=o.toCall>0?`To call <b>${fmt(call)}</b> · Pot <b>${fmt(pot)}</b> · Need <b>${Math.round(100*call/(pot+call))}%</b>`:`Pot <b>${fmt(pot)}</b> · No bet to you`;
   const bF=$('#b-fold'),bC=$('#b-call'),bR=$('#b-raise'),bA=$('#b-allin'),sl=$('#ap-slider'),amt=$('#ap-amt'),sizer=$('#ap-sizer');
   bF.classList.toggle('soft',o.toCall===0);bF.disabled=o.toCall===0;bF.title=o.toCall===0?'Nothing to call — checking is free':'';

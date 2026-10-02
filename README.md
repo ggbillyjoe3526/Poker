@@ -28,12 +28,28 @@ Plain HTML, CSS and JavaScript loaded as classic scripts, in this order:
 | --- | --- |
 | `js/util.js` | Seeded random numbers, card helpers, the hand evaluator and win-odds simulations |
 | `js/data.js` | Tournament settings, blind levels and the opponent roster with each opponent's play style |
+| `js/engine.js` | The rules, with no DOM: blinds and the dealer button, dealing, betting rounds, side pots, showdowns and eliminations |
+| `js/ai.js` | How opponents decide what to do |
 | `js/portrait.js` | Silhouette avatars, or a picture if a player has one |
 | `js/audio.js` | Sound effects synthesized with WebAudio |
 | `js/ui.js` | Everything on screen: table layout, cards, chips, the action panel, menus and the end-of-game recap |
-| `js/game.js` | The tournament: dealing, betting rounds, opponent decisions, showdowns and eliminations |
+| `js/game.js` | Runs the engine in the browser and animates each step it reports |
+
+The engine plays a hand through `playHand(table, io)`. Every step (a card dealt, an action, a pot paid) is reported to an `io` hook and awaited, which is where `game.js` animates. Only `io.decide` is required, so tests and simulations run hands with no page at all.
+
+Each game has one seed. The deck and the AI draw from separate seeded streams, so "Same opponents again" deals the same cards whatever anyone does, and an AI-only game with the same seed replays exactly.
 
 The table is drawn on a fixed 1600×900 stage that is scaled to fit the window.
+
+## Tests
+
+The tests use Node's built-in test runner (Node 18 or newer) and need no packages:
+
+```bash
+npm test
+```
+
+They cover hand ranking, blinds and the dead button, betting rules such as minimum and incomplete raises, side pots and split pots, eliminations, and full AI-only tournaments that check chips are conserved and seeds replay exactly.
 
 ## Custom avatars
 
