@@ -6,7 +6,7 @@ const E=require('./load.js'),{c,cs}=E;
 const avgStrength=w=>{let s=0,n=0;E.COMBOS.forEach(([a,b],i)=>{s+=w[i]*E.preStrength(a,b);n+=w[i];});return s/n;};
 // a heads-up table mid-hand: seat 0 is the AI deciding, seat 1 the opponent whose actions are `acts`
 function spot({hole,villain,board='',acts=[],toCall=0,pot=0,seed=1,ch=E.ROSTER[5]}){
-  const t=E.table(2,seed);E.startHand(t);
+  const t=E.table(2,seed);E.startHand(t);E.positions(t);
   const[p,q]=t.players;p.ch=ch;
   p.cards=cs(hole);q.cards=cs(villain);t.board=board?cs(board):[];t.street=[0,0,0,1,2,3][t.board.length];
   t.acts=acts;t.pot=pot;q.bet=toCall;t.currentBet=toCall;
@@ -30,7 +30,7 @@ test('each preflop raise narrows the range to stronger hands',()=>{
   t.acts=[{id:0,st:0,type:'raise',to:60,prev:20}];const open=r();
   t.acts=[{id:0,st:0,type:'raise',to:60,prev:20},{id:1,st:0,type:'raise',to:180,prev:60},{id:0,st:0,type:'raise',to:450,prev:180}];const four=r();
   assert.ok(all<limp&&limp<open&&open<four,`${all} < ${limp} < ${open} < ${four}`);
-  assert.ok(four>0.95,'a four-bet is mostly big pairs and big aces');
+  assert.ok(four>0.8,'a four-bet is mostly big pairs and big aces');
 });
 
 test('a range that only holds aces leaves kings about 18% to win',()=>{
@@ -66,9 +66,40 @@ test('the AI calls a river bet less often when the bettor has shown strength all
   const weak=[{id:1,st:0,type:'call',to:20,prev:20},{id:1,st:1,type:'check',to:0,prev:0},{id:1,st:2,type:'check',to:0,prev:0},{id:1,st:3,type:'raise',to:400,prev:0}];
   const strong=[{id:1,st:0,type:'raise',to:60,prev:20},{id:0,st:0,type:'raise',to:180,prev:60},{id:1,st:0,type:'raise',to:450,prev:180},
     {id:1,st:1,type:'raise',to:300,prev:0},{id:1,st:2,type:'raise',to:600,prev:0},{id:1,st:3,type:'raise',to:400,prev:0}];
-  const calls=acts=>{let n=0;for(let seed=1;seed<=30;seed++){const{t,p,o}=spot({hole:'Qh Jd',villain:'Ac Ad',board,acts,...bet,seed});
+  const calls=(hole,acts)=>{let n=0;for(let seed=1;seed<=30;seed++){const{t,p,o}=spot({hole,villain:'Ac Ad',board,acts,...bet,seed});
     if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;}return n;};
-  const vsWeak=calls(weak),vsStrong=calls(strong);
-  assert.ok(vsWeak>=25,`top pair should call a player who checked twice (${vsWeak}/30)`);
-  assert.ok(vsStrong<=8,`but not one who four-bet and fired every street (${vsStrong}/30)`);
+  const vsWeak=calls('9c 8c',weak),vsStrong=calls('9c 8c',strong);
+  assert.ok(vsWeak>=25,`middle pair should call a player who checked twice (${vsWeak}/30)`);
+  assert.ok(vsStrong<=5,`but not one who four-bet and fired every street (${vsStrong}/30)`);
+  assert.ok(calls('Kh Kd',strong)>=25,'kings still call: it reads the range, it does not just fold to pressure');
+});
+
+test('a 4-bet still gets called by jacks or better and ace-king most of the time',()=>{
+  // seat 1 opened, the AI (seat 0) three-bet, seat 1 four-bet; both have 100 big blinds
+  const acts=[{id:1,st:0,type:'raise',to:60,prev:20},{id:0,st:0,type:'raise',to:180,prev:60},{id:1,st:0,type:'raise',to:450,prev:180}];
+  for(const hole of ['Jc Jd','Ac Kd','Qc Qd']){
+    let n=0;
+    for(let seed=1;seed<=30;seed++){
+      const{t,p}=spot({hole,villain:'2c 2d',acts,toCall:450,seed,ch:E.ROSTER[3]}),q=t.players[1];
+      p.bet=180;p.chips=1820;q.chips=1550;p.lastRaiseId=-1;
+      const o=E.turnOptions(t,p);if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;
+    }
+    assert.ok(n>=20,`${hole} continues ${n}/30`);
+  }
+});
+
+test("a short stack's jam reads much wider than a deep stack's 3-bet",()=>{
+  const t=E.table(3);E.startHand(t);
+  const q=t.players[1],acts=[{id:0,st:0,type:'raise',to:60,prev:20},{id:1,st:0,type:'allin',to:200,prev:60}];
+  q.startChips=200;t.acts=acts;const jam=avgStrength(E.readRange(t,q));
+  q.startChips=4000;t.acts=[acts[0],{id:1,st:0,type:'raise',to:180,prev:60}];const threeBet=avgStrength(E.readRange(t,q));
+  assert.ok(jam<threeBet-0.03,`10 BB jam ${jam} vs 3-bet ${threeBet}`);
+});
+
+test('opponents whose ranges overlap are still dealt distinct cards',()=>{
+  // two aces-only ranges but the AI holds an ace: only one of them can really have aces
+  const aa=new Float64Array(1326);E.COMBOS.forEach(([a,b],i)=>{if(a%13===12&&b%13===12)aa[i]=1;});
+  const eq=E.rangeEquity(cs('As Kd'),[],[aa,aa],2000,E.mulberry32(5));
+  assert.ok(eq>0.03&&eq<0.15,`got ${eq}`);
+  assert.equal(eq,E.rangeEquity(cs('As Kd'),[],[aa,aa],2000,E.mulberry32(5)),'and the same seed gives the same answer');
 });

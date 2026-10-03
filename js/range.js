@@ -17,7 +17,7 @@ const preStrength=(a,b)=>PRE_STR[COMBO_IX[a*52+b]];
 
 const ramp=(v,lo,hi)=>clamp((v-lo)/(hi-lo),0,1);
 // keeps the hands in the top `width` share of combos, fading out (not cutting off) below it
-const topWeight=(s,width)=>{const below=1-s-width;return below<=0?1:Math.max(0.01,Math.exp(-below/(0.03+width*0.15)));};
+const topWeight=(s,width)=>{const below=1-s-width;return below<=0?1:Math.max(0.03,Math.exp(-below/(0.03+width*0.15)));};
 
 // how good every combo is on this board, 0..1: the share of other combos it beats, raised for draws
 // before the river. Cached for the hand, since every opponent's range reuses it.
@@ -48,33 +48,39 @@ function drawStrength(hole,board){
   return 0;
 }
 
+// players still to act after seat i before the flop, up to and including the big blind
+function seatsToAct(t,i){let n=0;for(let j=i;j!==t.bbSeat&&n<t.players.length;n++)j=nextAlive(t,j);return n;}
+
 // what player q probably holds, from their actions this hand as recorded in t.acts
 function readRange(t,q){
-  const w=new Float64Array(1326).fill(1);
-  let raises=0;
+  // before the flop the narrowest thing q showed sets the range (a 4-bet already implies the open)
+  let width=1,trap=0,raises=0;
   for(const a of t.acts){
-    const aggr=a.to>a.prev;
-    if(a.st===0){
-      if(a.id===q.id){
-        // the more raises before it, the stronger a raise or a call shows
-        const stackBB=q.startChips/t.bb,jam=a.type==='allin'&&aggr&&stackBB<=20;
-        const width=aggr?Math.max([0.2,0.07,0.03][Math.min(raises,2)],jam?Math.min(1,4/stackBB):0)
-          :a.type==='check'?1:[0.45,0.22,0.08][Math.min(raises,2)];
-        const trap=aggr||a.type==='check'?0:[0.08,0.04,0][Math.min(raises,2)]; // strong hands that would have raised
-        for(let i=0;i<1326;i++){const s=PRE_STR[i];w[i]*=topWeight(s,width)*(1-s<trap?0.5:1);}
-      }
-      if(aggr)raises++;
-      continue;
+    if(a.st>0)break;
+    const aggr=a.to>a.prev,k=Math.min(raises,2);
+    if(a.id===q.id&&a.type!=='check'){
+      // the more raises before it, the stronger a raise or a call shows; a short stack's jam is wide
+      const stackBB=q.startChips/t.bb,jam=a.type==='allin'&&aggr&&stackBB<=20;
+      const w=aggr?Math.max([0.2,0.12,0.06][k],jam?Math.min(1,(raises?2.5:4)/stackBB):0):[0.45,0.25,0.1][k];
+      if(w<width){width=w;trap=aggr?0:[0.08,0.04,0][k];} // a call leaves out some strong hands that would have raised
     }
-    if(a.id!==q.id)continue;
-    const str=boardStrength(t,t.board.slice(0,a.st+2));
+    if(aggr)raises++;
+  }
+  const w=new Float64Array(1326),post=new Float64Array(1326).fill(1);
+  for(let i=0;i<1326;i++){const s=PRE_STR[i];w[i]=topWeight(s,width)*(1-s<trap?0.5:1);}
+  // after the flop each action reweights by how good the hand is on the board it saw
+  for(const a of t.acts){
+    if(a.st===0||a.id!==q.id)continue;
+    const aggr=a.to>a.prev,str=boardStrength(t,t.board.slice(0,a.st+2));
     for(let i=0;i<1326;i++){
       const s=str[i];
-      if(a.type==='check')w[i]*=1-0.5*ramp(s,0.75,1);                          // strong hands usually bet
-      else if(aggr)w[i]*=a.prev>0?0.1+0.9*ramp(s,0.6,0.95)**1.5:0.15+0.85*ramp(s,0.45,0.9)**1.5; // a raise shows more than a bet; some are bluffs
-      else w[i]*=(0.1+0.9*ramp(s,0.25,0.65))*(1-0.3*ramp(s,0.9,1));             // calls: middling hands and draws
+      if(a.type==='check')post[i]*=1-0.5*ramp(s,0.75,1);                          // strong hands usually bet
+      else if(aggr)post[i]*=a.prev>0?0.1+0.9*ramp(s,0.6,0.95)**1.5:0.15+0.85*ramp(s,0.45,0.9)**1.5; // a raise shows more than a bet
+      else post[i]*=(0.1+0.9*ramp(s,0.25,0.65))*(1-0.3*ramp(s,0.9,1));             // calls: middling hands and draws
     }
   }
+  // however much they have bet, some of it can still be a bluff
+  for(let i=0;i<1326;i++)w[i]*=Math.max(post[i],0.04);
   return w;
 }
 
