@@ -16,7 +16,7 @@ function potTotal(t){return t.pot+t.players.reduce((a,p)=>a+p.bet,0);}
 // the same cards, whatever anyone does
 function initTable(t,players,rng,aiRng){
   players.forEach((p,i)=>Object.assign(p,{id:i,chips:START_STACK,cards:[],bet:0,total:0,folded:false,allIn:false,out:false,lastRaiseId:-1,place:0,
-    seen:{hands:0,vpip:0,pfr:0,aggr:0,calls:0,faced:0,folds:0}})); // what the table has seen of each player
+    seen:{hands:0,vpip:0,pfr:0,chances:0,aggr:0,faced:0,folds:0}})); // what the table has seen of each player
   Object.assign(t,{players,rng,aiRng,handNo:0,level:0,dealer:-1,bbSeat:null,pot:0,board:[],boardCards:[],street:0,
     currentBet:0,minRaise:0,raiseId:0,streetRaises:0,runout:false,acts:[]});
   [t.sb,t.bb]=BLINDS[0];
@@ -140,8 +140,9 @@ function tally(t,p,type,aggr,o){
     if(aggr&&!mine.some(a=>a.to>a.prev))s.pfr++;
     return;
   }
+  // after the flop: how often they fold to a bet, and how often they bet or raise when they could
   if(o.toCall>0){s.faced++;if(type==='fold')s.folds++;}
-  if(aggr)s.aggr++;else if(type!=='fold'&&type!=='check')s.calls++;
+  if(o.canRaise){s.chances++;if(aggr)s.aggr++;}
 }
 
 /* ---------------- SHOWDOWN / AWARDS ---------------- */

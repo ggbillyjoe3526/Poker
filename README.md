@@ -29,7 +29,7 @@ Plain HTML, CSS and JavaScript loaded as classic scripts, in this order:
 | `js/util.js` | Seeded random numbers, card helpers, the hand evaluator and win-odds simulations |
 | `js/data.js` | Tournament settings, blind levels and the opponent roster with each opponent's play style |
 | `js/engine.js` | The rules, with no DOM: blinds and the dealer button, dealing, betting rounds, side pots, showdowns and eliminations |
-| `js/range.js` | Hand ranges: what each opponent probably holds, read from how they have bet this hand |
+| `js/range.js` | Hand ranges: what each opponent probably holds, read from how they have bet this hand and how they have played so far |
 | `js/ai.js` | How opponents decide what to do |
 | `js/portrait.js` | Silhouette avatars, or a picture if a player has one |
 | `js/audio.js` | Sound effects synthesized with WebAudio |

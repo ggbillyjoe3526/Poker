@@ -217,9 +217,48 @@ test('the table keeps count of how each player plays',async()=>{
     return t.street===0?{type:'call'}:o.toCall?{type:'fold'}:{type:'check'};
   }});
   const seen=t.players.map(p=>p.seen);
-  assert.deepEqual(seen[0],{hands:1,vpip:1,pfr:1,aggr:1,calls:0,faced:0,folds:0},'raised, then bet the flop');
+  assert.deepEqual(seen[0],{hands:1,vpip:1,pfr:1,chances:1,aggr:1,faced:0,folds:0},'raised, then bet the flop');
   assert.deepEqual([seen[1].vpip,seen[1].pfr,seen[1].faced,seen[1].folds],[1,0,1,1],'called, then folded to the bet');
   assert.equal(seen[2].hands,1);
+});
+
+test('short-stack hands are left out of the counts, a limp then a raise counts once, and an all-in call is a call',async()=>{
+  const t=E.table(3);t.bbSeat=0;t.players[1].chips=300; // seat 1 starts with 15 big blinds: a push/fold stack
+  const plan={2:[{type:'call'},{type:'raise',to:180}],0:[{type:'raise',to:60},{type:'call'},{type:'raise',to:400}],1:[{type:'call'},{type:'call'}]};
+  await E.playHand(t,{decide:(p,o)=>plan[p.id].shift()||(o.toCall?{type:'call'}:{type:'check'})});
+  const[sb,bb,btn]=t.players.map(p=>p.seen);
+  assert.deepEqual([btn.vpip,btn.pfr],[1,1],'limped, then raised');
+  assert.deepEqual([bb.hands,bb.vpip],[0,0],'the short stack is not counted');
+  assert.deepEqual([sb.chances,sb.aggr],[3,1],'bet the flop, checked the turn and river');
+  assert.deepEqual([btn.faced,btn.folds,btn.chances,btn.aggr],[1,0,3,0],'called the flop bet');
+  assert.deepEqual([bb.faced,bb.folds,bb.chances,bb.aggr],[1,0,0,0],'called all in for less: no chance to raise');
+});
+
+test('a player who bets whenever they can is read with weaker hands behind a flop bet',()=>{
+  const t=E.table(2);E.startHand(t);t.board=cs('Kd 7c 2h');t.street=1;
+  const q=t.players[1],str=E.boardStrength(t,t.board);
+  const avg=w=>{let s=0,n=0;for(let i=0;i<1326;i++){s+=w[i]*str[i];n+=w[i];}return s/n;};
+  t.acts=[{id:1,st:1,type:'raise',to:40,prev:0}];
+  const read=(chances,aggr)=>{Object.assign(q.seen,{chances,aggr});return avg(E.readRange(t,q));};
+  const wild=read(40,30),typical=read(0,0),tame=read(40,4);
+  assert.ok(wild<typical-0.03&&typical<=tame,`${wild} < ${typical} <= ${tame}`);
+});
+
+test('the AI steals more when the players left to act rarely play a hand',()=>{
+  // queen-nine offsuit from the cutoff, folded to it
+  const opens=vpip=>{let n=0;for(let seed=1;seed<=20;seed++){const{t,p,o}=preSpot({hole:'Qc 9h',seat:5,acts:folds([3,4]),seed});
+    for(const i of [0,1,2])Object.assign(t.players[i].seen,{hands:60,vpip});
+    if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;}return n;};
+  const tight=opens(6),loose=opens(45);
+  assert.ok(tight>=16&&loose<=4,`opens ${tight}/20 into tight players, ${loose}/20 into loose ones`);
+});
+
+test('a re-raise gets bigger for each player who already called (a squeeze)',()=>{
+  const size=callers=>{let s=0;for(let seed=1;seed<=20;seed++){
+    const{t,p,o}=preSpot({hole:'Ac Ad',seat:0,acts:[{id:3,type:'raise',to:60},...[4,5].slice(0,callers).map(id=>({id,type:'call',to:60,prev:60})),...folds([4,5].slice(callers))],seed});
+    s+=E.checkLegal(o,E.aiDecide(t,p,o)).to/60;}return s/20;};
+  const sz=[0,1,2].map(size);
+  sz.forEach((v,i)=>assert.ok(Math.abs(v-(3+i))<0.2,`with ${i} callers: ${v} times the open`));
 });
 
 test("a player who raises every hand is read with a wider raising range than one who rarely does",()=>{

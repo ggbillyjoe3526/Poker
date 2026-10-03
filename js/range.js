@@ -1,6 +1,6 @@
 'use strict';
 /* ===== Hand ranges: what each opponent probably holds, judged only from what the table has seen them
-   do this hand. No DOM. A range is a weight for each of the 1,326 two-card combos. ===== */
+   do: their betting this hand, read in the light of their habits over the game. No DOM. A range is a weight for each of the 1,326 two-card combos. ===== */
 // the 169 starting hands, strongest first (ranked offline by equity against one and three random hands)
 const PREFLOP_ORDER='AA KK QQ JJ TT 99 AKs AQs 88 AJs AKo ATs KQs AQo 77 AJo KJs A9s ATo KTs KQo QJs A8s 66 KJo A7s QTs K9s A9o KTo A5s A6s QJo A4s JTs 55 A8o Q9s K8s A3s QTo K7s K9o A7o A5o J9s A2s Q8s JTo A6o K6s T9s Q9o K5s A4o K8o 44 A3o K4s J8s Q7s T8s J9o K3s Q6s K7o 98s T9o J7s A2o Q8o K6o Q5s K2s J8o T7s Q4s 33 K5o Q7o 97s K4o Q3s J6s T8o 87s Q2s J5s 98o T6s Q6o K3o J7o J4s 86s 22 96s Q5o K2o J3s T7o T5s 76s Q4o J2s 97o 87o J6o T4s 75s 85s Q3o 95s T3s 65s J5o T2s T6o Q2o 96o J4o 64s 54s 94s 84s 74s J3o 93s 86o 76o T5o 92s T4o 53s J2o 75o 95o 85o 43s 83s 65o T3o 73s 63s 82s T2o 94o 93o 54o 52s 84o 72s 62s 74o 64o 42s 92o 32s 53o 83o 63o 82o 73o 43o 52o 72o 62o 42o 32o'.split(' ');
 const COMBOS=[],COMBO_IX=new Int16Array(52*52),PRE_STR=new Float64Array(1326);
@@ -61,12 +61,16 @@ const openWidth=(t,i)=>{const n=seatsToAct(t,i);return n&&aliveList(t).length===
 const PUSH10=[0.4,0.62,0.4,0.3,0.22,0.17];
 const pushWidth=(bbs,behind,limpers=0)=>Math.min(1,PUSH10[Math.min(behind,5)]*(10/bbs)**0.78*0.75**Math.max(0,limpers-(behind?0:1)));
 
-// q's habits over the game so far, each pulled toward a typical player until enough hands are seen
-const TYPICAL={vpip:0.35,pfr:0.19,agg:0.67,fold:0.52}; // roughly how the computer players themselves play
+// roughly how the computer players themselves play (measured over AI-only games); agg is bets and raises
+// per chance to bet or raise after the flop, fold is folds per bet faced after the flop
+const TYPICAL={vpip:0.36,pfr:0.19,agg:0.3,fold:0.53};
+// q's habits over the game so far, each pulled toward a typical player until enough is seen. A game is
+// short (a player sees ~20 deep hands and ~5 bets after the flop), so the reads stay mild unless a
+// habit is strong or the player is around for a long time
 function tendency(q){
   const s=q.seen,est=(n,d,typ,k)=>(n+typ*k)/(d+k);
   return{vpip:est(s.vpip,s.hands,TYPICAL.vpip,40),pfr:est(s.pfr,s.hands,TYPICAL.pfr,40),
-    agg:est(s.aggr,s.aggr+s.calls,TYPICAL.agg,10),fold:est(s.folds,s.faced,TYPICAL.fold,10)};
+    agg:est(s.aggr,s.chances,TYPICAL.agg,15),fold:est(s.folds,s.faced,TYPICAL.fold,5)};
 }
 
 // what player q probably holds, from their actions this hand as recorded in t.acts, read in the light

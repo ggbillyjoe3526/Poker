@@ -37,14 +37,17 @@ function aiDecide(t,p,o){
   }
   // value bets and bluffs are sized alike (aggressive players bet bigger, and every size is mixed), so the
   // size never gives the hand away; only the opponents shift it: bigger into players who call everything
-  const fold=opps.reduce((a,q)=>a+habitsOf(t,p,q).fold,0)/nOpp,lean=fold-TYPICAL.fold;
+  // (all-in players can't fold, so only the others count)
+  const live=opps.filter(q=>!q.allIn),H=live.map(q=>habitsOf(t,p,q));
+  const fold=live.length?H.reduce((a,h)=>a+h.fold,0)/live.length:TYPICAL.fold,lean=fold-TYPICAL.fold;
+  const giveUp=live.length?H.reduce((a,h)=>a*h.fold,1)-TYPICAL.fold**live.length:0; // how much likelier than usual that everyone folds
   const betTo=()=>raiseTo(t.currentBet+Math.round((pot+toCall)*clamp((0.3+A.aggr*0.4+R()*0.5)*(1-lean),0.25,1.5)));
   if(toCall===0){
     // players who fold too much get bluffed more; ones who call everything get thinner value bets
     if(o.canRaise){
       if(r>1.45-A.aggr*0.3-(ip?0.1:0)+clamp(lean,-0.25,0.25)*0.5){if(r>1.9&&R()<A.trap&&st<3)return{type:'check'};return betTo();}
       if(r<0.9&&nOpp<=2&&R()<A.bluff*(ip?0.55:0.35)*clamp((fold/TYPICAL.fold)**2,0.3,2.5)){p.bluffing=true;return betTo();}
-      if(R()<A.aggr*0.1+Math.max(0,lean)*(1+A.aggr))return betTo(); // a stab, far more often at players who give up
+      if(R()<A.aggr*0.1+Math.max(0,giveUp)*(2+A.aggr))return betTo(); // a stab, far more often when the others give up
     }
     return{type:'check'};
   }
