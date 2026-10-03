@@ -26,7 +26,7 @@ addEventListener('resize',fit);
 /* ---------- preferences (display/sound conveniences only — no game progress is saved) ---------- */
 const PREF_KEY='allin-poker-prefs';
 function loadPrefs(){
-  const d={theme:'auto',calm:false,odds:true,sfxOn:true,sfx:0.8,speed:1};
+  const d={theme:'auto',calm:false,odds:true,sfxOn:true,sfx:0.8,speed:1,diff:'normal'};
   try{const s=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');return Object.assign(d,s);}catch(e){return d;}
 }
 function savePrefs(){try{localStorage.setItem(PREF_KEY,JSON.stringify(Object.assign({},G.opt,{sfx:SND.sfxVol,sfxOn:SND.sfxOn,speed:G.speed})));}catch(e){}}
@@ -83,7 +83,8 @@ function buildSeats(){
   for(const p of G.players){ if(p.isHuman) continue;
     const[x,y]=LAY.seat[p.id];const s=h('div','seat side-'+SIDE[p.id]);s.id='seat-'+p.id;
     s.style.left=(x-85)+'px';s.style.top=(y-70)+'px';
-    s.innerHTML=`<div class="pframe"><div class="portrait">${PORTRAIT.html(p.ch)}</div><div class="stamp">OUT</div><div class="thinking"><i></i><i></i><i></i></div></div><div class="atag"></div><div class="nameplate"><span class="nm">${p.name}</span><span class="stk">0</span></div><div class="bubble"></div>`;
+    s.innerHTML=`<div class="pframe"><div class="portrait">${PORTRAIT.html(p.ch)}</div><div class="stamp">OUT</div><div class="thinking"><i></i><i></i><i></i></div></div><div class="atag"></div><div class="nameplate" tabindex="0" aria-describedby="tip-${p.id}"><span class="nm">${p.name}</span><span class="stk">0</span></div><div class="bubble"></div>
+      <div class="tip" id="tip-${p.id}" role="tooltip"><b>${p.name}</b><span>${p.ch.style}</span><i class="tip-seen"></i></div>`;
     wrap.appendChild(s);p.el=s;
   }
   $('#hum-portrait').innerHTML=PORTRAIT.html(G.players[0].ch);
@@ -92,6 +93,13 @@ function updateSeat(p){
   if(p.isHuman){$('#hp-stack').textContent=p.out?'—':fmt(p.chips);return;}
   const s=p.el;if(!s)return;s.querySelector('.stk').textContent=p.out?'Out':fmt(p.chips);
   s.classList.toggle('folded',!!p.folded&&!p.out);s.classList.toggle('out',!!p.out);
+  s.querySelector('.tip-seen').textContent=seenText(p.seen);
+}
+// what the table has seen of a player: the same counts the opponents use to adjust to each other and to you
+function seenText(n){
+  if(!n||n.hands<8)return 'Not enough hands seen yet to read their habits.';
+  const pc=(a,b)=>Math.round(a/b*100)+'%';
+  return `Over ${n.hands} hands: plays ${pc(n.vpip,n.hands)}, raises first ${pc(n.pfr,n.hands)}`+(n.faced>=5?`, folds to ${pc(n.folds,n.faced)} of bets after the flop.`:'.');
 }
 function setActive(id){
   $$('.seat').forEach(s=>s.classList.remove('active'));$('#human-plate').classList.remove('active');$('#human-avatar').classList.remove('active');
@@ -208,8 +216,10 @@ function showTitle(seed){
   ov.innerHTML=`<div class="t-card"><div class="t-logo">All-In Poker</div>
   <div class="t-tag">No-limit Texas Hold'em · you and 5 opponents · last one with chips wins</div>
   <button class="btn raise big" id="t-go">Start game</button>
+  <div class="t-diff">Opponents: <b id="t-diff-name">${DIFF_NAME[G.opt.diff]||'Normal'}</b> <button class="linkbtn" id="t-diff">Change</button></div>
   <div class="t-hint">Keys: F fold · C check/call · R raise · A all-in · P pause · H help</div></div>`;
   ov.classList.add('show');document.body.classList.add('title');
+  $('#t-diff').onclick=()=>{SND.init();SND.click();showSettings();};
   $('#t-go').onclick=()=>{SND.init();SND.click();ov.classList.remove('show');document.body.classList.remove('title');newRun(seed);};
 }
 
@@ -251,18 +261,21 @@ function showHelp(){
    <div class="hc"><h3>The game</h3>No-limit Texas Hold'em. Everyone starts with ${fmt(START_STACK)} chips and the blinds rise every ${HANDS_PER_LEVEL} hands. Knock out all five opponents to win; lose your chips and the game ends.</div>
    <div class="hc"><h3>A hand</h3>You get 2 private cards. 5 shared cards arrive in stages: flop (3), turn (1), river (1). Your best 5 cards from all 7 win the pot — or bet so everyone else folds.</div>
    <div class="hc wide"><h3>Glossary</h3><dl><dt>Blinds</dt> forced bets posted by the two seats after the <b>D</b> button. &nbsp;<dt>Position</dt> acting later is an advantage. &nbsp;<dt>Side pot</dt> if someone is all-in for less, extra bets go in a separate pot they can't win. &nbsp;<dt>Need %</dt> how often a call must win to break even.</dl></div>
+   <div class="hc wide"><h3>Opponents</h3>Each opponent has a style of their own. Point at a name (or tab to it) to see it, along with what the table has seen of their play so far. They watch you too, and adjust to how often you fold, call and raise. Set how strong they are in the menu.</div>
    <div class="hc wide"><h3>Controls</h3><kbd>F</kbd> fold &nbsp;<kbd>C</kbd> check/call &nbsp;<kbd>R</kbd> raise &nbsp;<kbd>A</kbd> all-in &nbsp;<kbd>↑↓</kbd> bet size &nbsp;<kbd>P</kbd> pause &nbsp;<kbd>H</kbd> help. Scroll on the slider to adjust bets.</div>
   </div></div></div>`;
   ov.classList.add('show');syncPause();
   const close=()=>{ov.classList.remove('show');syncPause();SND.click();};
   $('#help-x').onclick=close;ov.querySelector('.ov-dim').onclick=close;
 }
+const DIFF_NAME={easy:'Easy',normal:'Normal',hard:'Hard'};
 const SPEEDS=[[0.75,'Relaxed'],[1,'Normal'],[1.6,'Fast'],[2.8,'Turbo']];
 function seg(id,opts,cur){return `<div class="seg" id="${id}">${opts.map(([v,n])=>`<button data-v="${v}" class="${String(cur)===String(v)?'on':''}">${n}</button>`).join('')}</div>`;}
 function showSettings(){
   const ov=$('#ov-settings');const o=G.opt,inGame=!document.body.classList.contains('title');
   ov.innerHTML=`<div class="ov-dim"></div><div class="panel set-panel"><button class="close-x" id="set-x">✕</button><h2>Menu</h2>
   <div class="set-list">
+   <div class="set-row"><label>Opponents${inGame?'<small>Applies from the next game</small>':''}</label>${seg('set-diff',Object.entries(DIFF_NAME),o.diff||'normal')}</div>
    <div class="set-row"><label>Theme</label>${seg('set-theme',[['light','Light'],['dark','Dark'],['auto','Auto']],o.theme)}</div>
    <div class="set-row"><label>Sound effects</label><div class="set-inline">${seg('set-fx',[['1','On'],['0','Off']],SND.sfxOn?'1':'0')}<input type="range" id="set-sfx" min="0" max="100" value="${Math.round(SND.sfxVol*100)}" aria-label="Sound effects volume"></div></div>
    <div class="set-row"><label>Game speed</label>${seg('set-speed',SPEEDS,G.speed)}</div>
@@ -276,6 +289,7 @@ function showSettings(){
   $('#set-sfx').oninput=e=>{SND.sfxVol=e.target.value/100;SND.apply();savePrefs();};
   $('#set-sfx').onchange=()=>SND.chips(3);
   const bind=(id,fn)=>$$(`#${id} button`).forEach(b=>b.onclick=()=>{fn(b.dataset.v);$$(`#${id} button`).forEach(x=>x.classList.toggle('on',x===b));applyPrefs();savePrefs();SND.click();});
+  bind('set-diff',v=>{o.diff=v;const t=$('#t-diff-name');if(t)t.textContent=DIFF_NAME[v];});
   bind('set-theme',v=>o.theme=v);
   bind('set-fx',v=>{SND.init();SND.sfxOn=v==='1';SND.apply();});
   bind('set-speed',v=>setSpeed(+v));

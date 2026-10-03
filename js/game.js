@@ -23,6 +23,7 @@ async function newRun(seed){
   // one seed replays the whole run: its deal stream also picks the opponents
   const rng=mulberry32(G.seed),roster=shuffle(ROSTER.slice(),rng).slice(0,5);
   initTable(G,[{isHuman:true,name:'You',ch:YOU_CH}].concat(roster.map(ch=>({isHuman:false,name:ch.name,ch}))),rng,mulberry32(G.seed^0x5bd1e995));
+  G.diff=DIFF_NAME[G.opt.diff]?G.opt.diff:'normal'; // how strong the opponents play (see SKILL in ai.js)
   G.players.forEach(p=>p.cardEls=[]);
   Object.assign(G,{boardEls:[],ffwd:false,humanTurn:false,paused:false,humanPlace:0,beaten:new Set(),
     stats:{hands:0,won:0,biggestPot:0,bestScore:-1,bestCards:null,bestBluff:null,knockouts:0,peak:START_STACK}});
