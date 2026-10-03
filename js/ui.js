@@ -99,7 +99,7 @@ function updateSeat(p){
 function seenText(n){
   if(!n||n.hands<8)return 'Not enough hands seen yet to read their habits.';
   const pc=(a,b)=>Math.round(a/b*100)+'%';
-  return `Over ${n.hands} hands: plays ${pc(n.vpip,n.hands)}, raises first ${pc(n.pfr,n.hands)}`+(n.faced>=5?`, folds to ${pc(n.folds,n.faced)} of bets after the flop.`:'.');
+  return `Over ${n.hands} hands: plays ${pc(n.vpip,n.hands)}, raises before the flop ${pc(n.pfr,n.hands)}`+(n.faced>=5?`, folds to ${pc(n.folds,n.faced)} of bets after the flop.`:'.');
 }
 function setActive(id){
   $$('.seat').forEach(s=>s.classList.remove('active'));$('#human-plate').classList.remove('active');$('#human-avatar').classList.remove('active');

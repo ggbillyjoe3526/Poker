@@ -4,10 +4,10 @@
 const fs=require('fs'),path=require('path');
 const FILES=['util.js','data.js','engine.js','range.js','ai.js'];
 const NAMES=['mulberry32','shuffle','evalHand','handCat','describe','bestFive','coreCards','equityVsRandom','multiEquity',
-  'START_STACK','HANDS_PER_LEVEL','BLINDS','ROSTER','YOU_CH','STREET_CARDS',
+  'START_STACK','HANDS_PER_LEVEL','BLINDS','ROSTER','LINES','YOU_CH','STREET_CARDS',
   'inHandList','canActList','aliveList','potTotal','initTable','startHand','positions','playHand','put','turnOptions',
   'applyAction','computePots','splitPot','resolveHand','eliminate','aiDecide',
-  'COMBOS','preStrength','boardStrength','readRange','rangeEquity','seatsToAct','pushWidth','tendency','TYPICAL'];
+  'COMBOS','preStrength','boardStrength','readRange','rangeEquity','seatsToAct','pushWidth','tendency','TYPICAL','SKILL'];
 const src=FILES.map(f=>fs.readFileSync(path.join(__dirname,'..','js',f),'utf8')).join('\n;\n');
 module.exports=new Function(`${src}\nreturn {${NAMES.join(',')}};`)();
 

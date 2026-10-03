@@ -72,6 +72,10 @@ test('the AI calls a river bet less often when the bettor has shown strength all
   assert.ok(vsWeak>=25,`middle pair should call a player who checked twice (${vsWeak}/30)`);
   assert.ok(vsStrong<=5,`but not one who four-bet and fired every street (${vsStrong}/30)`);
   assert.ok(calls('Kh Kd',strong)>=25,'kings still call: it reads the range, it does not just fold to pressure');
+  // on Easy the AI does not read the betting at all, so it pays off the strong line too
+  const easy=acts=>{let n=0;for(let seed=1;seed<=30;seed++){const{t,p,o}=spot({hole:'9c 8c',villain:'Ac Ad',board,acts,...bet,seed});t.diff='easy';
+    if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;}return n;};
+  assert.ok(easy(strong)>=25,`Easy calls the four-bettor down with middle pair (${easy(strong)}/30)`);
 });
 
 // a six-seat table before the flop, with the AI in `seat`; seat 0 has the button, 1 and 2 the blinds.
@@ -288,4 +292,13 @@ test('bet sizes do not give the hand away: bluffs and value bets use the same si
   assert.ok(value.length>50&&bluff.length>20,`${value.length} value bets, ${bluff.length} bluffs`);
   assert.ok(Math.abs(mean(value)-mean(bluff))<0.08,`value ${mean(value)} vs bluff ${mean(bluff)}`);
   assert.ok(new Set(value.map(v=>Math.round(v*4))).size>=3,'and value bets come in several sizes');
+});
+
+test('every opponent has a style hint and lines of their own, with the shared lines as a fallback',()=>{
+  for(const ch of E.ROSTER){
+    assert.ok(typeof ch.style==='string'&&ch.style.length>10,`${ch.name} has a style`);
+    for(const type in E.LINES)assert.ok(ch.lines[type]&&ch.lines[type].length,`${ch.name} has ${type} lines`);
+    assert.ok(Object.keys(E.LINES).some(type=>ch.lines[type]!==E.LINES[type]),`${ch.name} has a voice of their own`);
+  }
+  assert.equal(new Set(E.ROSTER.map(c=>c.style)).size,E.ROSTER.length,'no two share a style');
 });
