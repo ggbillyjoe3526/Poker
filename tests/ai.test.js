@@ -126,3 +126,31 @@ test('opponents whose ranges overlap are still dealt distinct cards',()=>{
   assert.ok(eq>0.03&&eq<0.15,`got ${eq}`);
   assert.equal(eq,E.rangeEquity(cs('As Kd'),[],[aa,aa],2000,E.mulberry32(5)),'and the same seed gives the same answer');
 });
+
+/* ---------------- position and short stacks ---------------- */
+test('push/fold widths grow as the stack shrinks and as fewer players are left to act',()=>{
+  assert.ok(E.pushWidth(5,5)>E.pushWidth(10,5)&&E.pushWidth(10,5)>E.pushWidth(15,5));
+  assert.ok(E.pushWidth(10,1)>E.pushWidth(10,2)&&E.pushWidth(10,2)>E.pushWidth(10,5));
+  assert.equal(E.pushWidth(3,1),1,'the small blind shoves any two cards with 3 big blinds');
+});
+
+test('the same hand opens from the button but folds under the gun',()=>{
+  const at=(seat,before)=>decide({hole:'Kd 9c',seat,acts:folds(before)});
+  const utg=at(3,[]),btn=at(0,[3,4,5]);
+  assert.ok((utg.fold||0)>=16,`UTG: ${JSON.stringify(utg)}`);
+  assert.ok((btn.raise||0)+(btn.allin||0)>=16,`button: ${JSON.stringify(btn)}`);
+});
+
+test('with 8 big blinds the AI shoves or folds, wider from the button than under the gun',()=>{
+  const at=(seat,before)=>decide({hole:'Qd 8c',seat,bbs:8,acts:folds(before)});
+  const utg=at(3,[]),btn=at(0,[3,4,5]);
+  assert.deepEqual(Object.keys(utg).concat(Object.keys(btn)).filter(k=>k!=='fold'&&k!=='allin'),[]);
+  assert.ok((utg.fold||0)>=16&&(btn.allin||0)>=16,`UTG ${JSON.stringify(utg)}, button ${JSON.stringify(btn)}`);
+});
+
+test('a shove from a short stack is called wider than a shove from a deep one',()=>{
+  // seat 3 (under the gun) moves all in; the big blind holds ace-nine
+  const calls=bbs=>decide({hole:'Ah 9c',seat:2,bbs,acts:[{id:3,type:'allin',to:bbs*20},...folds([4,5,0,1])]}).call||0;
+  assert.ok(calls(6)>=16,`6 BB shove: ${calls(6)}/20 calls`);
+  assert.ok(calls(40)<=4,`40 BB shove: ${calls(40)}/20 calls`);
+});
