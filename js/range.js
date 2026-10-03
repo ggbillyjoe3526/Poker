@@ -74,15 +74,16 @@ function tendency(q){
 function readRange(t,q){
   const T=tendency(q),loose=clamp(T.vpip/TYPICAL.vpip,0.6,2.5),raisy=clamp(T.pfr/TYPICAL.pfr,0.6,3),wild=clamp(T.agg/TYPICAL.agg,0.5,2.5);
   // before the flop the narrowest thing q showed sets the range (a 4-bet already implies the open)
-  let width=1,trap=0,raises=0,limps=0;
+  let width=1,trap=0,raises=0,limps=0;const gone=new Set(); // players who folded before q acted
   for(const a of t.acts){
     if(a.st>0)break;
     if(a.id!==q.id&&!raises&&a.type==='call')limps++;
+    if(a.type==='fold')gone.add(a.id);
     const aggr=a.to>a.prev,k=Math.min(raises,2);
     if(a.id===q.id&&a.type!=='check'){
       // the more raises before it, the stronger a raise or a call shows
       // a short stack's jam is wide (push/fold); a deep stack moving in first is as strong as a 3-bet
-      const stackBB=Math.min(q.startChips,Math.max(...t.players.filter(x=>x!==q&&!x.out).map(x=>x.startChips)))/t.bb; // effective
+      const stackBB=Math.min(q.startChips,Math.max(...t.players.filter(x=>x!==q&&!x.out&&!gone.has(x.id)).map(x=>x.startChips)))/t.bb; // effective
       const allin=a.type==='allin'&&aggr,jam=allin&&stackBB<=20;
       const w=aggr?Math.max(raises?(k>1?0.04:0.09):allin?0.09:openWidth(t,q.id),jam?(raises?Math.min(1,2.5/stackBB):pushWidth(stackBB,seatsToAct(t,q.id),limps)):0)
         :[0.45,0.25,0.1][k];

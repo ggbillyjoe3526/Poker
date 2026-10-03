@@ -69,7 +69,8 @@ function unopened(t,p,o,A,R,raiseTo){
   // the tighter the players still to act, the more often a raise just wins the blinds
   const rest=[];for(let j=p.id;j!==t.bbSeat&&rest.length<t.players.length;){j=nextAlive(t,j);rest.push(t.players[j]);}
   const steal=clamp(TYPICAL.vpip*rest.length/rest.reduce((a,q)=>a+tendency(q).vpip,0),0.6,2);
-  const width=openWidth(t,p.id)*style*(behind<=3?clamp(steal,0.8,1.5):1),open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
+  // limpers left in make raising them (or joining them) take a better hand
+  const width=openWidth(t,p.id)*style*(behind<=3?clamp(steal,0.8,1.5):1)*0.8**limpers,open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
   if(top<width)return top<0.05||R()<0.35+A.aggr*0.7?open():{type:'call'}; // a passive player sometimes limps instead
   if(behind<=2&&R()<A.bluff*0.15*steal*steal){p.bluffing=true;return open();} // a steal from late position
   if(limpers&&top<width*1.5)return{type:'call'}; // join the limpers with a playable hand

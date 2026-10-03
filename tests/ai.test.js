@@ -194,6 +194,15 @@ test('a deep stack shoving into short stacks is read as a push, by the effective
   assert.ok(deep<all-0.05,`into short stacks ${deep}, with everyone deep ${all}`);
 });
 
+test('a shove is read by the stacks still in the hand, not by a deep stack that already folded',()=>{
+  const t=E.table(6);t.bbSeat=1;E.startHand(t);E.positions(t);
+  t.players.forEach(p=>p.startChips=160);t.players[0].startChips=t.players[3].startChips=800; // seat 3 (40 BB) folds first
+  const q=t.players[0];t.acts=[...[3,4,5].map(id=>({id,st:0,type:'fold',to:0,prev:20})),{id:0,st:0,type:'allin',to:800,prev:20}];
+  const read=avgStrength(E.readRange(t,q));
+  t.players[3].startChips=160;const short=avgStrength(E.readRange(t,q));
+  assert.ok(Math.abs(read-short)<0.01,`with the deep stack folded ${read}, with it short ${short}`);
+});
+
 test('limpers make a short stack shove tighter',()=>{
   assert.ok(E.pushWidth(9,2,2)<E.pushWidth(9,2,0)*0.7);
   const acts=[{id:3,type:'call',to:20},{id:4,type:'call',to:20},...folds([5])];
