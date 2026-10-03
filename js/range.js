@@ -67,16 +67,17 @@ const TYPICAL={vpip:0.36,pfr:0.19,agg:0.3,fold:0.53};
 // q's habits over the game so far, each pulled toward a typical player until enough is seen. A game is
 // short (a player sees ~20 deep hands and ~5 bets after the flop), so the reads stay mild unless a
 // habit is strong or the player is around for a long time
-function tendency(q){
-  const s=q.seen,est=(n,d,typ,k)=>(n+typ*k)/(d+k);
+// (`learn` above 1 trusts what was seen sooner)
+function tendency(q,learn=1){
+  const s=q.seen,est=(n,d,typ,k)=>(n+typ*k/learn)/(d+k/learn);
   return{vpip:est(s.vpip,s.hands,TYPICAL.vpip,40),pfr:est(s.pfr,s.hands,TYPICAL.pfr,40),
     agg:est(s.aggr,s.chances,TYPICAL.agg,15),fold:est(s.folds,s.faced,TYPICAL.fold,5)};
 }
 
 // what player q probably holds, from their actions this hand as recorded in t.acts, read in the light
 // of their habits: a player who raises every hand has a wide raising range
-function readRange(t,q){
-  const T=tendency(q),loose=clamp(T.vpip/TYPICAL.vpip,0.6,2.5),raisy=clamp(T.pfr/TYPICAL.pfr,0.6,3),wild=clamp(T.agg/TYPICAL.agg,0.5,2.5);
+function readRange(t,q,learn=1){
+  const T=tendency(q,learn),loose=clamp(T.vpip/TYPICAL.vpip,0.6,2.5),raisy=clamp(T.pfr/TYPICAL.pfr,0.6,3),wild=clamp(T.agg/TYPICAL.agg,0.5,2.5);
   // before the flop the narrowest thing q showed sets the range (a 4-bet already implies the open)
   let width=1,trap=0,raises=0,limps=0;const gone=new Set(); // players who folded before q acted
   for(const a of t.acts){

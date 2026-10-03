@@ -1,17 +1,20 @@
 'use strict';
 /* ===== Opponent AI: picks an action for player p at table t. No DOM; all randomness comes from
    t.aiRng so a seeded table replays the same decisions. ===== */
-// the difficulty setting (t.diff, or p.diff for one player in a simulation): Easy opponents ignore what the betting says, judge hands roughly, make
-// noisier choices and call too much; Hard ones think longer and make fewer loose calls
+// the difficulty setting (t.diff, or p.diff for one player in a simulation). read: use what the betting and
+// habits say (Easy plays against random cards); iters: simulation depth; noise: how rough each judgement
+// is; slack: looser (+) or tighter (-) calls; push: share of the push/fold chart to shove (the full chart
+// is chip-EV and too loose for a tournament); learn: how quickly habits are trusted.
+// Tuned with `npm run sim`: each level clearly beats the one below it
 const SKILL={
-  easy:  {read:false,iters:0.5,noise:2.2,slack:0.07, push:1},
-  normal:{read:true, iters:1,  noise:1,  slack:0,    push:1},
-  hard:  {read:true, iters:1.6,noise:0.5,slack:-0.02,push:0.65},
+  easy:  {read:false,iters:0.5,noise:2.2,slack:0.07, push:1,   learn:1},
+  normal:{read:true, iters:1,  noise:1,  slack:-0.03,push:0.8, learn:1},
+  hard:  {read:true, iters:2,  noise:0.3,slack:-0.1, push:0.65,learn:2},
 };
 const skillOf=(t,p)=>SKILL[p.diff||t.diff]||SKILL.normal;
 // what p sees of q: their range from this hand's betting and their habits so far (Easy sees neither)
-const rangeOf=(t,p,q)=>skillOf(t,p).read?readRange(t,q):null;
-const habitsOf=(t,p,q)=>skillOf(t,p).read?tendency(q):TYPICAL;
+const rangeOf=(t,p,q)=>skillOf(t,p).read?readRange(t,q,skillOf(t,p).learn):null;
+const habitsOf=(t,p,q)=>skillOf(t,p).read?tendency(q,skillOf(t,p).learn):TYPICAL;
 function aiDecide(t,p,o){
   const A=p.ch.ai,bb=t.bb,st=t.street,R=t.aiRng,S=skillOf(t,p);
   const pot=potTotal(t),toCall=o.toCall,stack=p.chips;
@@ -111,7 +114,7 @@ function facingRaise(t,p,o,A,R,raiseTo){
   }
   // calling with chips behind: weaker hands win less than their equity once the betting continues
   const spr=(p.chips-toCall)/(pot+toCall);
-  const need=toCall/(pot+toCall)+waiting*0.03+(oop?0.03:0)+(raises>=2?0.08:0.02)*Math.min(1,spr/3)-A.sticky*0.06-A.loose*0.04-S.slack;
+  const need=toCall/(pot+toCall)+waiting*0.03+(oop?0.03:0)+[0,0.02,0.08,0.25][Math.min(raises,3)]*Math.min(1,spr/3)-A.sticky*0.06-A.loose*0.04-S.slack;
   // the same size for value and bluffs, a bit bigger for each player who already called (a squeeze)
   const callers=inPot.filter(q=>q.bet===t.currentBet&&!t.acts.some(a=>a.id===q.id&&a.to===t.currentBet&&a.to>a.prev)).length;
   const reraise=()=>raiseTo(t.currentBet*((raises>=2?2.3:oop?3.4:3)+callers)+(R()-0.5)*bb);

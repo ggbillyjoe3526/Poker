@@ -3,6 +3,7 @@
   "private": true,
   "description": "No-Limit Texas Hold'em tournament in the browser",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "sim": "node tools/sim.js"
   }
 }

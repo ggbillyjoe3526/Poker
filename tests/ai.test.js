@@ -97,8 +97,9 @@ const DAVID=E.ROSTER[5]; // the tightest personality
 test('facing a 4-bet a tight player continues with big pairs and ace-king and folds the rest',()=>{
   // seat 3 opened, the AI on the button three-bet, seat 3 four-bet to 450 (100 big blinds deep)
   const acts=[{id:3,type:'raise',to:60},...folds([4,5]),{id:0,type:'raise',to:180,prev:60},...folds([1,2]),{id:3,type:'raise',to:450,prev:180}];
-  for(const hole of ['Qc Qd','Kc Kd','Ac Kd']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)<=6,`${hole}: ${JSON.stringify(n)}`);}
-  for(const hole of ['Kc 9d','Ac 2d','9s 8s']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)>=16,`${hole}: ${JSON.stringify(n)}`);}
+  for(const hole of ['Qc Qd','Kc Kd','Ac Kd','Jc Jd']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)<=6,`${hole}: ${JSON.stringify(n)}`);}
+  // the borderline ones too: still 100 big blinds behind, so king-queen or a small pair can't just call off on price
+  for(const hole of ['Kc 9d','Ac 2d','9s 8s','Kc Qc','7c 7d','Ac Qd']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)>=16,`${hole}: ${JSON.stringify(n)}`);}
 });
 
 test('a deep 4-bet jam gets called by queens or better but not by ace-jack or sevens',()=>{
@@ -146,7 +147,7 @@ test('the same hand opens from the button but folds under the gun',()=>{
 });
 
 test('with 8 big blinds the AI shoves or folds, wider from the button than under the gun',()=>{
-  const at=(seat,before)=>decide({hole:'Qd 8c',seat,bbs:8,acts:folds(before)});
+  const at=(seat,before)=>decide({hole:'Jd Tc',seat,bbs:8,acts:folds(before)});
   const utg=at(3,[]),btn=at(0,[3,4,5]);
   assert.deepEqual(Object.keys(utg).concat(Object.keys(btn)).filter(k=>k!=='fold'&&k!=='allin'),[]);
   assert.ok((utg.fold||0)>=16&&(btn.allin||0)>=16,`UTG ${JSON.stringify(utg)}, button ${JSON.stringify(btn)}`);
