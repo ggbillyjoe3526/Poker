@@ -79,7 +79,7 @@ test('the AI calls a river bet less often when the bettor has shown strength all
 function preSpot({hole,seat,bbs=100,stacks={},acts=[],seed=1,ch=E.ROSTER[2]}){
   const t=E.table(6,seed);t.bbSeat=1;E.startHand(t);E.positions(t);
   t.players.forEach(p=>{p.chips=(stacks[p.id]||bbs)*t.bb;p.startChips=p.chips;});
-  for(const[i,b] of [[1,t.sb],[2,t.bb]]){const q=t.players[i];q.chips-=b;q.bet=b;q.total=b;}
+  for(const[i,blind] of [[1,t.sb],[2,t.bb]]){const q=t.players[i],b=Math.min(blind,q.chips);q.chips-=b;q.bet=b;q.total=b;q.allIn=q.chips===0;}
   t.currentBet=t.bb;t.minRaise=t.bb;t.raiseId=1;
   for(const a of acts){const q=t.players[a.id];if(a.type==='fold')q.folded=true;else{const d=a.to-q.bet;q.chips-=d;q.bet=a.to;q.total+=d;q.allIn=q.chips===0;t.currentBet=Math.max(t.currentBet,a.to);}}
   t.acts=acts.map(a=>({st:0,prev:20,...a}));const p=t.players[seat];p.ch=ch;p.cards=cs(hole);
@@ -153,4 +153,27 @@ test('a shove from a short stack is called wider than a shove from a deep one',(
   const calls=bbs=>decide({hole:'Ah 9c',seat:2,bbs,acts:[{id:3,type:'allin',to:bbs*20},...folds([4,5,0,1])]}).call||0;
   assert.ok(calls(6)>=16,`6 BB shove: ${calls(6)}/20 calls`);
   assert.ok(calls(40)<=4,`40 BB shove: ${calls(40)}/20 calls`);
+});
+
+test('an open reads wider from the button than from under the gun',()=>{
+  const t=E.table(6);t.bbSeat=1;E.startHand(t);E.positions(t);
+  const read=id=>{t.acts=[{id,st:0,type:'raise',to:60,prev:20}];return avgStrength(E.readRange(t,t.players[id]));};
+  assert.ok(read(3)>read(0)+0.05,`under the gun ${read(3)}, button ${read(0)}`);
+});
+
+test('in a limped pot the big blind raise is read as a real range, so limpers fight back with good hands',()=>{
+  // seat 3 limps, the small blind completes, the big blind raises to 110
+  const acts=[{id:3,type:'call',to:20},...folds([4,5,0]),{id:1,type:'call',to:20},{id:2,type:'raise',to:110}];
+  for(const hole of ['Qc Qd','Ac Kd','Tc Td']){const n=decide({hole,seat:3,acts,ch:DAVID});assert.ok((n.fold||0)<=4,`${hole}: ${JSON.stringify(n)}`);}
+});
+
+test('a short big blind facing limpers does not shove rubbish',()=>{
+  const acts=[{id:3,type:'call',to:20},{id:4,type:'call',to:20},...folds([5,0,1])];
+  for(const hole of ['7c 2d','9c 4d']){const n=decide({hole,seat:2,bbs:9,acts});assert.ok(!n.allin,`${hole}: ${JSON.stringify(n)}`);}
+  assert.ok((decide({hole:'Ac Kd',seat:2,bbs:9,acts}).allin||0)>=16,'but shoves ace-king');
+});
+
+test('when only an all-in big blind is left to call, the small blind calls',()=>{
+  const n=decide({hole:'Ac Ad',seat:1,stacks:{2:0.75},acts:folds([3,4,5,0])});
+  assert.deepEqual(n,{call:20});
 });

@@ -55,7 +55,8 @@ function unopened(t,p,o,A,R,raiseTo){
   const eff=Math.min(p.chips+p.bet,Math.max(...inHandList(t).filter(q=>q!==p).map(q=>q.chips+q.bet)))/bb;
   const style=(1+A.loose*0.8)*(0.9+R()*0.2); // looser players play more hands, and no two spots are identical
   const limpers=t.acts.filter(a=>a.st===0&&a.type==='call').length,fold=toCall===0?{type:'check'}:{type:'fold'};
-  if(eff<=10+A.aggr*4)return o.canRaise&&top<pushWidth(eff,behind)*style?{type:'allin'}:fold;
+  if(!o.canRaise)return toCall?{type:'call'}:{type:'check'}; // only an all-in big blind to call: always worth it
+  if(eff<=10+A.aggr*4)return top<pushWidth(eff,behind)*style?{type:'allin'}:fold;
   if(toCall===0){ // the big blind after limps
     if(o.canRaise&&top<0.12*(1+A.aggr)*style)return raiseTo(bb*(3.5+limpers));
     return{type:'check'};
@@ -63,7 +64,7 @@ function unopened(t,p,o,A,R,raiseTo){
   const width=openWidth(t,p.id)*style,open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
   if(top<width)return top<0.05||R()<0.35+A.aggr*0.7?open():{type:'call'}; // a passive player sometimes limps instead
   if(o.canRaise&&behind<=2&&R()<A.bluff*0.15){p.bluffing=true;return open();} // a steal from late position
-  if(limpers&&top<width*1.5&&toCall<=bb)return{type:'call'}; // join the limpers with a playable hand
+  if(limpers&&top<width*1.5)return{type:'call'}; // join the limpers with a playable hand
   return fold;
 }
 
