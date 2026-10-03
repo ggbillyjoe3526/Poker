@@ -56,17 +56,21 @@ function facingRaise(t,p,o,A,R,raiseTo){
   const bb=t.bb,toCall=o.toCall,pot=potTotal(t),top=1-preStrength(...p.cards);
   const inPot=inHandList(t).filter(q=>q!==p&&t.acts.some(a=>a.st===0&&a.id===q.id));
   const eq=rangeEquity(p.cards,[],inPot.map(q=>readRange(t,q)),260,R),n=inPot.length;
-  const waiting=inHandList(t).filter(q=>q!==p&&!inPot.includes(q)&&!q.allIn).length; // could still wake up behind
+  const others=inHandList(t).filter(q=>q!==p),waiting=others.filter(q=>!inPot.includes(q)&&!q.allIn).length; // could still wake up
   const raises=t.acts.filter(a=>a.st===0&&a.to>a.prev).length,behind=seatsToAct(t,p.id);
-  const oop=behind===0||(behind===1&&aliveList(t).length>2); // the blinds act first after the flop
-  // no one can win or lose more than the second-biggest stack in the hand
-  const eff=Math.min(p.chips+p.bet,Math.max(...inPot.map(q=>q.chips+q.bet)))/bb;
+  const oop=p.id===t.bbSeat||(p.id!==t.dealer&&behind===1); // the blinds act first after the flop
+  // effective stack: the most p can win or lose against anyone still in the hand, waiting players included
+  const stackOf=q=>q.chips+q.bet,eff=Math.min(stackOf(p),Math.max(...others.map(stackOf)))/bb;
   if(toCall>=p.chips||eff<=20){ // too short to raise and fold: all in or out
-    const final=pot+p.chips+Math.max(0,p.chips-toCall);
-    const need=(toCall>=p.chips?toCall/(pot+toCall):p.chips/final-(raises===1?0.05+A.aggr*0.05:0))+waiting*0.02-A.sticky*0.05;
+    // what p really risks, and the pot if the biggest stack already in calls it
+    const v=inPot.reduce((a,q)=>stackOf(q)>stackOf(a)?q:a),cap=Math.min(stackOf(p),stackOf(v));
+    const risk=cap-p.bet,final=pot+risk+Math.max(0,cap-v.bet);
+    const need=(toCall>=p.chips?toCall/(pot+toCall):risk/final-(raises===1?0.05+A.aggr*0.05:0))+waiting*0.02-A.sticky*0.05;
     return eq>=need?(o.canRaise?{type:'allin'}:{type:'call'}):{type:'fold'};
   }
-  const need=toCall/(pot+toCall)+waiting*0.03+(oop?0.03:0)-A.sticky*0.06-A.loose*0.04;
+  // calling with chips behind: weaker hands win less than their equity once the betting continues
+  const spr=(p.chips-toCall)/(pot+toCall);
+  const need=toCall/(pot+toCall)+waiting*0.03+(oop?0.03:0)+(raises>=2?0.08:0.02)*Math.min(1,spr/3)-A.sticky*0.06-A.loose*0.04;
   if(o.canRaise&&raises<4&&eq*(n+1)>1.3-A.aggr*0.15)return raiseTo(t.currentBet*(raises>=2?2.3:oop?3.4:3)+(R()-0.5)*bb);
   if(o.canRaise&&raises===1&&!oop&&top>0.08&&top<0.3&&R()<A.bluff*0.2){p.bluffing=true;return raiseTo(t.currentBet*3);}
   return eq>=need?{type:'call'}:{type:'fold'};

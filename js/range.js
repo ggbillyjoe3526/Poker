@@ -16,8 +16,9 @@ const COMBOS=[],COMBO_IX=new Int16Array(52*52),PRE_STR=new Float64Array(1326);
 const preStrength=(a,b)=>PRE_STR[COMBO_IX[a*52+b]];
 
 const ramp=(v,lo,hi)=>clamp((v-lo)/(hi-lo),0,1);
-// keeps the hands in the top `width` share of combos, fading out (not cutting off) below it
-const topWeight=(s,width)=>{const below=1-s-width;return below<=0?1:Math.max(0.03,Math.exp(-below/(0.03+width*0.15)));};
+// keeps the hands in the top `width` share of combos, fading out (not cutting off) below it; the
+// narrower the range, the less room for random hands
+const topWeight=(s,width)=>{const below=1-s-width;return below<=0?1:Math.max(Math.min(0.03,width*0.1),Math.exp(-below/(0.01+width*0.25)));};
 
 // how good every combo is on this board, 0..1: the share of other combos it beats, raised for draws
 // before the river. Cached for the hand, since every opponent's range reuses it.
@@ -61,7 +62,7 @@ function readRange(t,q){
     if(a.id===q.id&&a.type!=='check'){
       // the more raises before it, the stronger a raise or a call shows; a short stack's jam is wide
       const stackBB=q.startChips/t.bb,jam=a.type==='allin'&&aggr&&stackBB<=20;
-      const w=aggr?Math.max([0.2,0.12,0.06][k],jam?Math.min(1,(raises?2.5:4)/stackBB):0):[0.45,0.25,0.1][k];
+      const w=aggr?Math.max([0.2,0.09,0.04][k],jam?Math.min(1,(raises?2.5:4)/stackBB):0):[0.45,0.25,0.1][k];
       if(w<width){width=w;trap=aggr?0:[0.08,0.04,0][k];} // a call leaves out some strong hands that would have raised
     }
     if(aggr)raises++;

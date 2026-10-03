@@ -74,17 +74,40 @@ test('the AI calls a river bet less often when the bettor has shown strength all
   assert.ok(calls('Kh Kd',strong)>=25,'kings still call: it reads the range, it does not just fold to pressure');
 });
 
-test('a 4-bet still gets called by jacks or better and ace-king most of the time',()=>{
-  // seat 1 opened, the AI (seat 0) three-bet, seat 1 four-bet; both have 100 big blinds
-  const acts=[{id:1,st:0,type:'raise',to:60,prev:20},{id:0,st:0,type:'raise',to:180,prev:60},{id:1,st:0,type:'raise',to:450,prev:180}];
-  for(const hole of ['Jc Jd','Ac Kd','Qc Qd']){
-    let n=0;
-    for(let seed=1;seed<=30;seed++){
-      const{t,p}=spot({hole,villain:'2c 2d',acts,toCall:450,seed,ch:E.ROSTER[3]}),q=t.players[1];
-      p.bet=180;p.chips=1820;q.chips=1550;p.lastRaiseId=-1;
-      const o=E.turnOptions(t,p);if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;
-    }
-    assert.ok(n>=20,`${hole} continues ${n}/30`);
+// a six-seat table before the flop, with the AI in `seat`; seat 0 has the button, 1 and 2 the blinds.
+// `acts` are what happened before the AI's turn (raises carry the total bet in `to`)
+function preSpot({hole,seat,bbs=100,stacks={},acts=[],seed=1,ch=E.ROSTER[2]}){
+  const t=E.table(6,seed);t.bbSeat=1;E.startHand(t);E.positions(t);
+  t.players.forEach(p=>{p.chips=(stacks[p.id]||bbs)*t.bb;p.startChips=p.chips;});
+  for(const[i,b] of [[1,t.sb],[2,t.bb]]){const q=t.players[i];q.chips-=b;q.bet=b;q.total=b;}
+  t.currentBet=t.bb;t.minRaise=t.bb;t.raiseId=1;
+  for(const a of acts){const q=t.players[a.id];if(a.type==='fold')q.folded=true;else{const d=a.to-q.bet;q.chips-=d;q.bet=a.to;q.total+=d;q.allIn=q.chips===0;t.currentBet=Math.max(t.currentBet,a.to);}}
+  t.acts=acts.map(a=>({st:0,prev:20,...a}));const p=t.players[seat];p.ch=ch;p.cards=cs(hole);
+  return{t,p,o:E.turnOptions(t,p)};
+}
+// how often each action is chosen in a spot over 20 seeds
+const decide=spot=>{const n={};for(let seed=1;seed<=20;seed++){const{t,p,o}=preSpot({...spot,seed});const a=E.checkLegal(o,E.aiDecide(t,p,o)).type;n[a]=(n[a]||0)+1;}return n;};
+const folds=ids=>ids.map(id=>({id,type:'fold',to:0}));
+const DAVID=E.ROSTER[5]; // the tightest personality
+
+test('facing a 4-bet a tight player continues with big pairs and ace-king and folds the rest',()=>{
+  // seat 3 opened, the AI on the button three-bet, seat 3 four-bet to 450 (100 big blinds deep)
+  const acts=[{id:3,type:'raise',to:60},...folds([4,5]),{id:0,type:'raise',to:180,prev:60},...folds([1,2]),{id:3,type:'raise',to:450,prev:180}];
+  for(const hole of ['Qc Qd','Kc Kd','Ac Kd']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)<=6,`${hole}: ${JSON.stringify(n)}`);}
+  for(const hole of ['Kc 9d','Ac 2d','9s 8s']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)>=16,`${hole}: ${JSON.stringify(n)}`);}
+});
+
+test('a deep 4-bet jam gets called by queens or better but not by ace-jack or sevens',()=>{
+  const acts=[{id:3,type:'raise',to:60},...folds([4,5]),{id:0,type:'raise',to:180,prev:60},...folds([1,2]),{id:3,type:'allin',to:2000,prev:180}];
+  for(const hole of ['Qc Qd','Ac Ad']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.call||0)>=16,`${hole}: ${JSON.stringify(n)}`);}
+  for(const hole of ['Ac Jd','7c 7d']){const n=decide({hole,seat:0,acts,ch:DAVID});assert.ok((n.fold||0)>=16,`${hole}: ${JSON.stringify(n)}`);}
+});
+
+test('a deep stack does not shove over a short all-in while deep players wait behind',()=>{
+  // the button moves in for 8 big blinds; the AI in the small blind has 100, so does the big blind
+  for(const hole of ['Kc 6d','Qc 9d','Kc Td']){
+    const n=decide({hole,seat:1,stacks:{0:8},acts:[...folds([3,4,5]),{id:0,type:'allin',to:160}],ch:DAVID});
+    assert.ok(!n.allin,`${hole}: ${JSON.stringify(n)}`);
   }
 });
 
