@@ -3,8 +3,9 @@
    t.aiRng so a seeded table replays the same decisions. ===== */
 function aiDecide(t,p,o){
   const A=p.ch.ai,bb=t.bb,st=t.street,R=t.aiRng;
-  const nOpp=inHandList(t).length-1;
-  const eq=equityVsRandom(p.cards,t.board,nOpp,st===0?260:320,R);
+  // equity against what each opponent's betting says they hold, not against random cards
+  const opps=inHandList(t).filter(q=>q!==p),nOpp=opps.length;
+  const eq=rangeEquity(p.cards,t.board,opps.map(q=>readRange(t,q)),st===0?260:300,R);
   const rel=eq*(nOpp+1),noise=(R()-0.5)*0.3,r=rel+noise;p.bluffing=false;
   const pot=potTotal(t),toCall=o.toCall,stack=p.chips;
   const round=v=>Math.round(v/t.sb)*t.sb;

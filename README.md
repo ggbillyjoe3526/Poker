@@ -29,6 +29,7 @@ Plain HTML, CSS and JavaScript loaded as classic scripts, in this order:
 | `js/util.js` | Seeded random numbers, card helpers, the hand evaluator and win-odds simulations |
 | `js/data.js` | Tournament settings, blind levels and the opponent roster with each opponent's play style |
 | `js/engine.js` | The rules, with no DOM: blinds and the dealer button, dealing, betting rounds, side pots, showdowns and eliminations |
+| `js/range.js` | Hand ranges: what each opponent probably holds, read from how they have bet this hand |
 | `js/ai.js` | How opponents decide what to do |
 | `js/portrait.js` | Silhouette avatars, or a picture if a player has one |
 | `js/audio.js` | Sound effects synthesized with WebAudio |
@@ -49,7 +50,7 @@ The tests use Node's built-in test runner (Node 18 or newer) and need no package
 npm test
 ```
 
-They cover hand ranking, blinds and the dead button, betting rules such as minimum and incomplete raises and short all-in blinds, side pots and split pots, eliminations, and full AI-only tournaments that check chips are conserved and seeds replay exactly.
+They cover hand ranking, blinds and the dead button, betting rules such as minimum and incomplete raises and short all-in blinds, side pots and split pots, eliminations, how opponents read ranges from the betting, and full AI-only tournaments that check chips are conserved and seeds replay exactly.
 
 ## Custom avatars
 

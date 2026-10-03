@@ -2,11 +2,12 @@
 // Loads the game's DOM-free scripts the way the browser does (classic scripts sharing one scope)
 // and hands back their functions, so tests can drive the real engine without a page.
 const fs=require('fs'),path=require('path');
-const FILES=['util.js','data.js','engine.js','ai.js'];
+const FILES=['util.js','data.js','engine.js','range.js','ai.js'];
 const NAMES=['mulberry32','shuffle','evalHand','handCat','describe','bestFive','coreCards','equityVsRandom','multiEquity',
   'START_STACK','HANDS_PER_LEVEL','BLINDS','ROSTER','YOU_CH','STREET_CARDS',
   'inHandList','canActList','aliveList','potTotal','initTable','startHand','positions','playHand','put','turnOptions',
-  'applyAction','computePots','splitPot','resolveHand','eliminate','aiDecide'];
+  'applyAction','computePots','splitPot','resolveHand','eliminate','aiDecide',
+  'COMBOS','preStrength','boardStrength','readRange','rangeEquity'];
 const src=FILES.map(f=>fs.readFileSync(path.join(__dirname,'..','js',f),'utf8')).join('\n;\n');
 module.exports=new Function(`${src}\nreturn {${NAMES.join(',')}};`)();
 

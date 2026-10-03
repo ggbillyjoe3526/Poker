@@ -17,7 +17,7 @@ function potTotal(t){return t.pot+t.players.reduce((a,p)=>a+p.bet,0);}
 function initTable(t,players,rng,aiRng){
   players.forEach((p,i)=>Object.assign(p,{id:i,chips:START_STACK,cards:[],bet:0,total:0,folded:false,allIn:false,out:false,lastRaiseId:-1,place:0}));
   Object.assign(t,{players,rng,aiRng,handNo:0,level:0,dealer:-1,bbSeat:null,pot:0,board:[],boardCards:[],street:0,
-    currentBet:0,minRaise:0,raiseId:0,streetRaises:0,runout:false});
+    currentBet:0,minRaise:0,raiseId:0,streetRaises:0,runout:false,acts:[]});
   [t.sb,t.bb]=BLINDS[0];
   return t;
 }
@@ -27,7 +27,7 @@ function startHand(t){
   t.handNo++;
   const lvl=Math.min(BLINDS.length-1,Math.floor((t.handNo-1)/HANDS_PER_LEVEL)),lvlUp=lvl!==t.level;
   t.level=lvl;[t.sb,t.bb]=BLINDS[lvl];
-  Object.assign(t,{pot:0,board:[],boardCards:[],street:0,streetRaises:0,runout:false});
+  Object.assign(t,{pot:0,board:[],boardCards:[],street:0,streetRaises:0,runout:false,acts:[]});
   for(const p of t.players)Object.assign(p,{startChips:p.chips,cards:[],bet:0,total:0,folded:p.out,allIn:false,lastRaiseId:-1,bluffing:false,score:0});
   return lvlUp;
 }
@@ -123,6 +123,7 @@ function applyAction(t,p,act,o){
     if(p.bet>t.currentBet){const inc=p.bet-t.currentBet;if(inc>=t.minRaise){t.minRaise=inc;t.raiseId++;}t.currentBet=p.bet;t.streetRaises++;}
   }
   p.lastRaiseId=t.raiseId;
+  t.acts.push({id:p.id,st:t.street,type,to:p.bet,prev:ev.prev}); // the hand's public action history
   return ev;
 }
 
