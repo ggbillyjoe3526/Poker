@@ -54,25 +54,27 @@ function seatsToAct(t,i){let n=0;for(let j=i;j!==t.bbSeat&&n<t.players.length;n+
 // share of hands worth opening, by players left to act behind (heads-up the button opens far wider);
 // with nobody behind it is the big blind raising limpers
 const OPEN_WIDTH=[0.18,0.45,0.33,0.24,0.18,0.15],OPEN_HU=0.65;
-const openWidth=(t,i)=>aliveList(t).length===2?OPEN_HU:OPEN_WIDTH[Math.min(seatsToAct(t,i),5)];
+const openWidth=(t,i)=>{const n=seatsToAct(t,i);return n&&aliveList(t).length===2?OPEN_HU:OPEN_WIDTH[Math.min(n,5)];};
 // share of hands to move all in with when nobody has raised, by stack (in big blinds) and players
 // left to act: a fit to the standard push/fold charts, so 10 BB shoves ~17% under the gun, ~62% in the small blind
-const PUSH10=[0.4,0.62,0.4,0.3,0.22,0.17]; // the big blind only shoves over limpers, who are not folding much
-const pushWidth=(bbs,behind)=>Math.min(1,PUSH10[Math.min(behind,5)]*(10/bbs)**0.78);
+// (the big blind only ever shoves over limpers); each limper makes a shove tighter, since limpers fold less
+const PUSH10=[0.4,0.62,0.4,0.3,0.22,0.17];
+const pushWidth=(bbs,behind,limpers=0)=>Math.min(1,PUSH10[Math.min(behind,5)]*(10/bbs)**0.78*0.75**Math.max(0,limpers-(behind?0:1)));
 
 // what player q probably holds, from their actions this hand as recorded in t.acts
 function readRange(t,q){
   // before the flop the narrowest thing q showed sets the range (a 4-bet already implies the open)
-  let width=1,trap=0,raises=0;
+  let width=1,trap=0,raises=0,limps=0;
   for(const a of t.acts){
     if(a.st>0)break;
+    if(a.id!==q.id&&!raises&&a.type==='call')limps++;
     const aggr=a.to>a.prev,k=Math.min(raises,2);
     if(a.id===q.id&&a.type!=='check'){
       // the more raises before it, the stronger a raise or a call shows
       // a short stack's jam is wide (push/fold); a deep stack moving in first is as strong as a 3-bet
       const stackBB=Math.min(q.startChips,Math.max(...t.players.filter(x=>x!==q&&!x.out).map(x=>x.startChips)))/t.bb; // effective
       const allin=a.type==='allin'&&aggr,jam=allin&&stackBB<=20;
-      const w=aggr?Math.max(raises?[0,0.09,0.04][k]:allin?0.09:openWidth(t,q.id),jam?(raises?Math.min(1,2.5/stackBB):pushWidth(stackBB,seatsToAct(t,q.id))):0)
+      const w=aggr?Math.max(raises?(k>1?0.04:0.09):allin?0.09:openWidth(t,q.id),jam?(raises?Math.min(1,2.5/stackBB):pushWidth(stackBB,seatsToAct(t,q.id),limps)):0)
         :[0.45,0.25,0.1][k];
       if(w<width){width=w;trap=aggr?0:[0.08,0.04,0][k];} // a call leaves out some strong hands that would have raised
     }

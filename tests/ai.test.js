@@ -177,3 +177,25 @@ test('when only an all-in big blind is left to call, the small blind calls',()=>
   const n=decide({hole:'Ac Ad',seat:1,stacks:{2:0.75},acts:folds([3,4,5,0])});
   assert.deepEqual(n,{call:20});
 });
+
+test('heads-up, a big blind raise over a limp reads narrow, not like a button open',()=>{
+  const t=E.table(2);t.bbSeat=0;E.startHand(t);E.positions(t); // seat 0 has the button and small blind, seat 1 the big blind
+  t.acts=[{id:0,st:0,type:'call',to:20,prev:20},{id:1,st:0,type:'raise',to:80,prev:20}];const bbRaise=avgStrength(E.readRange(t,t.players[1]));
+  t.acts=[{id:0,st:0,type:'raise',to:50,prev:20}];const open=avgStrength(E.readRange(t,t.players[0]));
+  assert.ok(bbRaise>open+0.15,`big blind raise ${bbRaise}, button open ${open}`);
+});
+
+test('a deep stack shoving into short stacks is read as a push, by the effective stack',()=>{
+  const t=E.table(6);t.bbSeat=1;E.startHand(t);E.positions(t);
+  t.players.forEach(p=>p.startChips=200); // everyone else has 10 big blinds
+  const q=t.players[0];t.acts=[...[3,4,5].map(id=>({id,st:0,type:'fold',to:0,prev:20})),{id:0,st:0,type:'allin',to:4000,prev:20}];
+  q.startChips=4000;const deep=avgStrength(E.readRange(t,q));
+  t.players.forEach(p=>p.startChips=4000);const all=avgStrength(E.readRange(t,q));
+  assert.ok(deep<all-0.05,`into short stacks ${deep}, with everyone deep ${all}`);
+});
+
+test('limpers make a short stack shove tighter',()=>{
+  assert.ok(E.pushWidth(9,2,2)<E.pushWidth(9,2,0)*0.7);
+  const acts=[{id:3,type:'call',to:20},{id:4,type:'call',to:20},...folds([5])];
+  assert.ok(!decide({hole:'Qc 8d',seat:0,bbs:9,acts}).allin,'a 9 BB button does not shove queen-eight over two limpers');
+});
