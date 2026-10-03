@@ -1,20 +1,22 @@
 'use strict';
 /* ===== Opponent AI: picks an action for player p at table t. No DOM; all randomness comes from
    t.aiRng so a seeded table replays the same decisions. ===== */
-// the difficulty setting (t.diff, or p.diff for one player in a simulation). read: use what the betting and
-// habits say (Easy plays against random cards); iters: simulation depth; noise: how rough each judgement
-// is; slack: looser (+) or tighter (-) calls; push: share of the push/fold chart to shove (the full chart
-// is chip-EV and too loose for a tournament); learn: how quickly habits are trusted.
-// Tuned with `npm run sim`: each level clearly beats the one below it
+// the difficulty setting (t.diff, or p.diff for one player in a simulation). iters: simulation depth;
+// noise: how rough each judgement is; slack: looser (+) or tighter (-) calls; push: share of the push/fold
+// chart to shove (the full chart is chip-EV, too loose for a tournament, so Hard shoves tighter); learn: how
+// quickly habits are trusted (Easy ignores them and reads only this hand's betting); exploit: how hard
+// it leans on a habit it has seen (bluffing players who fold too much, value-betting ones who don't).
+// Tuned with `npm run sim`: each level beats the one below it head to head, and Normal and Hard punish a
+// leaky player harder than Easy (Hard barely more than Normal there)
 const SKILL={
-  easy:  {read:false,iters:0.5,noise:2.2,slack:0.07, push:1,   learn:1},
-  normal:{read:true, iters:1,  noise:1,  slack:-0.03,push:0.8, learn:1},
-  hard:  {read:true, iters:2,  noise:0.3,slack:-0.1, push:0.65,learn:2},
+  easy:  {iters:0.5,noise:2.2,slack:0.07, push:1,   learn:0,exploit:1},
+  normal:{iters:1,  noise:1,  slack:-0.03,push:0.8, learn:1,exploit:1},
+  hard:  {iters:2,  noise:0.3,slack:-0.05,push:0.65,learn:1,exploit:1.5},
 };
 const skillOf=(t,p)=>SKILL[p.diff||t.diff]||SKILL.normal;
-// what p sees of q: their range from this hand's betting and their habits so far (Easy sees neither)
-const rangeOf=(t,p,q)=>skillOf(t,p).read?readRange(t,q,skillOf(t,p).learn):null;
-const habitsOf=(t,p,q)=>skillOf(t,p).read?tendency(q,skillOf(t,p).learn):TYPICAL;
+// what p sees of q: their range from this hand's betting, and their habits so far
+const rangeOf=(t,p,q)=>readRange(t,q,skillOf(t,p).learn);
+const habitsOf=(t,p,q)=>tendency(q,skillOf(t,p).learn);
 function aiDecide(t,p,o){
   const A=p.ch.ai,bb=t.bb,st=t.street,R=t.aiRng,S=skillOf(t,p);
   const pot=potTotal(t),toCall=o.toCall,stack=p.chips;
@@ -42,14 +44,14 @@ function aiDecide(t,p,o){
   // size never gives the hand away; only the opponents shift it: bigger into players who call everything
   // (all-in players can't fold, so only the others count)
   const live=opps.filter(q=>!q.allIn),H=live.map(q=>habitsOf(t,p,q));
-  const fold=live.length?H.reduce((a,h)=>a+h.fold,0)/live.length:TYPICAL.fold,lean=fold-TYPICAL.fold;
-  const giveUp=live.length?H.reduce((a,h)=>a*h.fold,1)-TYPICAL.fold**live.length:0; // how much likelier than usual that everyone folds
+  const X=S.exploit,fold=live.length?H.reduce((a,h)=>a+h.fold,0)/live.length:TYPICAL.fold,lean=(fold-TYPICAL.fold)*X;
+  const giveUp=live.length?(H.reduce((a,h)=>a*h.fold,1)-TYPICAL.fold**live.length)*X:0; // how much likelier than usual that everyone folds
   const betTo=()=>raiseTo(t.currentBet+Math.round((pot+toCall)*clamp((0.3+A.aggr*0.4+R()*0.5)*(1-lean),0.25,1.5)));
   if(toCall===0){
     // players who fold too much get bluffed more; ones who call everything get thinner value bets
     if(o.canRaise){
-      if(r>1.45-A.aggr*0.3-(ip?0.1:0)+clamp(lean,-0.25,0.25)*0.5){if(r>1.9&&R()<A.trap&&st<3)return{type:'check'};return betTo();}
-      if(r<0.9&&nOpp<=2&&R()<A.bluff*(ip?0.55:0.35)*clamp((fold/TYPICAL.fold)**2,0.3,2.5)){p.bluffing=true;return betTo();}
+      if(r>1.45-A.aggr*0.3-(ip?0.1:0)+clamp(lean,-0.35,0.35)*0.5){if(r>1.9&&R()<A.trap&&st<3)return{type:'check'};return betTo();}
+      if(r<0.9&&nOpp<=2&&R()<A.bluff*(ip?0.55:0.35)*clamp((fold/TYPICAL.fold)**(2*X),0.3,2.5)){p.bluffing=true;return betTo();}
       if(R()<A.aggr*0.1+Math.max(0,giveUp)*(2+A.aggr))return betTo(); // a stab, far more often when the others give up
     }
     return{type:'check'};
@@ -61,7 +63,7 @@ function aiDecide(t,p,o){
   if(o.canRaise&&t.streetRaises<3){
     const raise=()=>raiseTo(t.currentBet+Math.round((pot+toCall)*(0.6+R()*0.4)));
     if(r>1.75-A.aggr*0.3&&R()<0.35+A.aggr*0.5){if(r>1.9&&R()<A.trap*0.6&&st<3)return{type:'call'};return raise();}
-    if(r<0.8&&nOpp===1&&st<3&&R()<A.bluff*0.12*clamp(habitsOf(t,p,opps[0]).fold/TYPICAL.fold,0.5,2)){p.bluffing=true;return raise();}
+    if(r<0.8&&nOpp===1&&st<3&&R()<A.bluff*0.12*clamp((habitsOf(t,p,opps[0]).fold/TYPICAL.fold)**X,0.5,2)){p.bluffing=true;return raise();}
   }
   if(eq+noise*0.15>=need)return{type:'call'};
   return{type:'fold'};
@@ -72,20 +74,20 @@ function actsAfter(t,p,q){const n=t.players.length,d=x=>(x-t.dealer-1+n)%n;retur
 
 // before the flop with nobody raised yet: a hand chart by position, push or fold when short
 function unopened(t,p,o,A,R,raiseTo){
-  const bb=t.bb,toCall=o.toCall,top=1-preStrength(...p.cards),behind=seatsToAct(t,p.id);
+  const bb=t.bb,toCall=o.toCall,top=1-preStrength(...p.cards),behind=seatsToAct(t,p.id),S=skillOf(t,p);
   // effective stack: no one can win or lose more than the biggest other stack still in the hand
   const eff=Math.min(p.chips+p.bet,Math.max(...inHandList(t).filter(q=>q!==p).map(q=>q.chips+q.bet)))/bb;
-  const style=(1+A.loose*0.8)*(1+(R()-0.5)*0.2*skillOf(t,p).noise); // looser players play more hands; no two spots are identical
+  const style=(1+A.loose*0.8)*(1+(R()-0.5)*0.2*S.noise); // looser players play more hands; no two spots are identical
   const limpers=t.acts.filter(a=>a.st===0&&a.type==='call').length,fold=toCall===0?{type:'check'}:{type:'fold'};
   if(!o.canRaise)return toCall?{type:'call'}:{type:'check'}; // only an all-in big blind to call: always worth it
-  if(eff<=10+A.aggr*4)return top<pushWidth(eff,behind,limpers)*style*skillOf(t,p).push?{type:'allin'}:fold;
+  if(eff<=10+A.aggr*4)return top<pushWidth(eff,behind,limpers)*style*S.push?{type:'allin'}:fold;
   if(toCall===0){ // the big blind after limps
     if(top<0.12*(1+A.aggr)*style)return raiseTo(bb*(3.5+limpers));
     return{type:'check'};
   }
   // the tighter the players still to act, the more often a raise just wins the blinds
   const rest=[];for(let j=p.id;j!==t.bbSeat&&rest.length<t.players.length;){j=nextAlive(t,j);rest.push(t.players[j]);}
-  const steal=clamp(TYPICAL.vpip*rest.length/rest.reduce((a,q)=>a+habitsOf(t,p,q).vpip,0),0.6,2);
+  const steal=clamp((TYPICAL.vpip*rest.length/rest.reduce((a,q)=>a+habitsOf(t,p,q).vpip,0))**S.exploit,0.6,2);
   // limpers left in make raising them (or joining them) take a better hand
   const width=openWidth(t,p.id)*style*(behind<=3?clamp(steal,0.8,1.5):1)*0.8**limpers,open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
   if(top<width)return top<0.05||R()<0.35+A.aggr*0.7?open():{type:'call'}; // a passive player sometimes limps instead

@@ -130,11 +130,12 @@ function applyAction(t,p,act,o){
 }
 
 // counts p's habits for the rest of the table to read: how often they play and raise before the flop,
-// bet or call after it, and fold when bet into
+// and after it how often they bet or raise when they could and fold when bet into. Hands that started
+// with 20 big blinds or less are left out: a short stack plays push or fold, which says little about habits
 function tally(t,p,type,aggr,o){
   const s=p.seen;
-  if(t.street===0){ // once per hand each: put money in voluntarily, raised (deep hands only: short ones are push/fold)
-    if(p.startChips<=20*t.bb)return;
+  if(p.startChips<=20*t.bb)return;
+  if(t.street===0){ // once per hand each: put money in voluntarily, raised
     const mine=t.acts.filter(a=>a.id===p.id&&a.st===0);
     if(type!=='fold'&&type!=='check'&&!mine.some(a=>a.type!=='check'))s.vpip++;
     if(aggr&&!mine.some(a=>a.to>a.prev))s.pfr++;

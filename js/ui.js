@@ -96,10 +96,12 @@ function updateSeat(p){
   s.querySelector('.tip-seen').textContent=seenText(p.seen);
 }
 // what the table has seen of a player: the same counts the opponents use to adjust to each other and to you
+// (TYPICAL is how often the computer players do each thing on average)
 function seenText(n){
   if(!n||n.hands<8)return 'Not enough hands seen yet to read their habits.';
-  const pc=(a,b)=>Math.round(a/b*100)+'%';
-  return `Over ${n.hands} hands: plays ${pc(n.vpip,n.hands)}, raises before the flop ${pc(n.pfr,n.hands)}`+(n.faced>=5?`, folds to ${pc(n.folds,n.faced)} of bets after the flop.`:'.');
+  const pc=(a,b,typ)=>{const r=a/b/typ;return Math.round(a/b*100)+'%'+(r>1.25?' (more than most)':r<0.8?' (less than most)':' (about average)');};
+  return `Over ${n.hands} hands: plays ${pc(n.vpip,n.hands,TYPICAL.vpip)} of hands, raises ${pc(n.pfr,n.hands,TYPICAL.pfr)} before the flop`+
+    (n.faced>=5?`, folds to ${pc(n.folds,n.faced,TYPICAL.fold)} of bets after it.`:'.');
 }
 function setActive(id){
   $$('.seat').forEach(s=>s.classList.remove('active'));$('#human-plate').classList.remove('active');$('#human-avatar').classList.remove('active');
@@ -233,6 +235,7 @@ function showRecap(win){
     ['Best hand',S.bestScore>=0?`${describe(S.bestScore)} ${miniCards(S.bestCards)}`:'—'],
     ['Best bluff',S.bestBluff?`${fmt(S.bestBluff.pot)} <small>with ${S.bestBluff.desc}</small>`:'—'],
     ['Knockouts',S.knockouts],
+    ['Opponents',DIFF_NAME[G.diff]||'Normal'],
     ['Peak stack',fmt(S.peak)],
   ];
   const standing=G.players.slice().sort((a,b)=>(a.out?a.place:(a.isHuman&&win?1:0))-(b.out?b.place:(b.isHuman&&win?1:0)));
@@ -275,7 +278,7 @@ function showSettings(){
   const ov=$('#ov-settings');const o=G.opt,inGame=!document.body.classList.contains('title');
   ov.innerHTML=`<div class="ov-dim"></div><div class="panel set-panel"><button class="close-x" id="set-x">✕</button><h2>Menu</h2>
   <div class="set-list">
-   <div class="set-row"><label>Opponents${inGame?'<small>Applies from the next game</small>':''}</label>${seg('set-diff',Object.entries(DIFF_NAME),o.diff||'normal')}</div>
+   <div class="set-row"><label>Opponents${inGame?`<small>This game: ${DIFF_NAME[G.diff]}. Changes apply from the next game</small>`:''}</label>${seg('set-diff',Object.entries(DIFF_NAME),o.diff||'normal')}</div>
    <div class="set-row"><label>Theme</label>${seg('set-theme',[['light','Light'],['dark','Dark'],['auto','Auto']],o.theme)}</div>
    <div class="set-row"><label>Sound effects</label><div class="set-inline">${seg('set-fx',[['1','On'],['0','Off']],SND.sfxOn?'1':'0')}<input type="range" id="set-sfx" min="0" max="100" value="${Math.round(SND.sfxVol*100)}" aria-label="Sound effects volume"></div></div>
    <div class="set-row"><label>Game speed</label>${seg('set-speed',SPEEDS,G.speed)}</div>

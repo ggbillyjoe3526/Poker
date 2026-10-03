@@ -18,7 +18,7 @@ Open `index.html` in any modern browser. There is nothing to install and no buil
 | H | How to play |
 | Esc | Close menus |
 
-The menu (top right) has the light/dark theme, sound, game speed, win-odds display and a reduced-motion option. Only these preferences are saved; a game in progress is not.
+The menu (top right) has the opponents' difficulty (Easy, Normal or Hard, from the next game), the light/dark theme, sound, game speed, win-odds display and a reduced-motion option. Only these preferences are saved; a game in progress is not.
 
 ## How it's built
 

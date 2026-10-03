@@ -63,12 +63,13 @@ const pushWidth=(bbs,behind,limpers=0)=>Math.min(1,PUSH10[Math.min(behind,5)]*(1
 
 // roughly how the computer players themselves play (measured over AI-only games); agg is bets and raises
 // per chance to bet or raise after the flop, fold is folds per bet faced after the flop
-const TYPICAL={vpip:0.36,pfr:0.19,agg:0.3,fold:0.53};
+const TYPICAL={vpip:0.33,pfr:0.19,agg:0.32,fold:0.53};
 // q's habits over the game so far, each pulled toward a typical player until enough is seen. A game is
 // short (a player sees ~20 deep hands and ~5 bets after the flop), so the reads stay mild unless a
 // habit is strong or the player is around for a long time
-// (`learn` above 1 trusts what was seen sooner)
+// (`learn` above 1 trusts what was seen sooner; 0 ignores it)
 function tendency(q,learn=1){
+  if(!learn)return TYPICAL;
   const s=q.seen,est=(n,d,typ,k)=>(n+typ*k/learn)/(d+k/learn);
   return{vpip:est(s.vpip,s.hands,TYPICAL.vpip,40),pfr:est(s.pfr,s.hands,TYPICAL.pfr,40),
     agg:est(s.aggr,s.chances,TYPICAL.agg,15),fold:est(s.folds,s.faced,TYPICAL.fold,5)};

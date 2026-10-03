@@ -72,10 +72,15 @@ test('the AI calls a river bet less often when the bettor has shown strength all
   assert.ok(vsWeak>=25,`middle pair should call a player who checked twice (${vsWeak}/30)`);
   assert.ok(vsStrong<=5,`but not one who four-bet and fired every street (${vsStrong}/30)`);
   assert.ok(calls('Kh Kd',strong)>=25,'kings still call: it reads the range, it does not just fold to pressure');
-  // on Easy the AI does not read the betting at all, so it pays off the strong line too
-  const easy=acts=>{let n=0;for(let seed=1;seed<=30;seed++){const{t,p,o}=spot({hole:'9c 8c',villain:'Ac Ad',board,acts,...bet,seed});t.diff='easy';
-    if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;}return n;};
-  assert.ok(easy(strong)>=25,`Easy calls the four-bettor down with middle pair (${easy(strong)}/30)`);
+});
+
+test('Easy opponents call down lighter than Normal ones',()=>{
+  // ace-high facing a river bet from a player who raised before the flop, then checked the flop and turn
+  const acts=[{id:1,st:0,type:'raise',to:60,prev:20},{id:1,st:1,type:'check',to:0,prev:0},{id:1,st:2,type:'check',to:0,prev:0},{id:1,st:3,type:'raise',to:400,prev:0}];
+  const calls=diff=>{let n=0;for(let seed=1;seed<=40;seed++){const{t,p,o}=spot({hole:'Ah Qd',villain:'Ac Ad',board:'Ks 8d 3c 5h 2s',acts,toCall:400,pot:800,seed,ch:E.ROSTER[2]});
+    t.diff=diff;if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='fold')n++;}return n;};
+  const easy=calls('easy'),normal=calls('normal');
+  assert.ok(easy>=20&&normal<=5,`Easy ${easy}/40 calls, Normal ${normal}/40`);
 });
 
 // a six-seat table before the flop, with the AI in `seat`; seat 0 has the button, 1 and 2 the blinds.
@@ -228,15 +233,17 @@ test('the table keeps count of how each player plays',async()=>{
 });
 
 test('short-stack hands are left out of the counts, a limp then a raise counts once, and an all-in call is a call',async()=>{
-  const t=E.table(3);t.bbSeat=0;t.players[1].chips=300; // seat 1 starts with 15 big blinds: a push/fold stack
-  const plan={2:[{type:'call'},{type:'raise',to:180}],0:[{type:'raise',to:60},{type:'call'},{type:'raise',to:400}],1:[{type:'call'},{type:'call'}]};
+  const t=E.table(3);t.bbSeat=0;t.players[0].chips=3000; // seat 0 posts the small blind, seat 1 the big blind, seat 2 has the button
+  const plan={2:[{type:'call'},{type:'raise',to:180}],0:[{type:'raise',to:60},{type:'call'},{type:'raise',to:1500}],1:[{type:'call'},{type:'call'}]};
   await E.playHand(t,{decide:(p,o)=>plan[p.id].shift()||(o.toCall?{type:'call'}:{type:'check'})});
   const[sb,bb,btn]=t.players.map(p=>p.seen);
   assert.deepEqual([btn.vpip,btn.pfr],[1,1],'limped, then raised');
-  assert.deepEqual([bb.hands,bb.vpip],[0,0],'the short stack is not counted');
-  assert.deepEqual([sb.chances,sb.aggr],[3,1],'bet the flop, checked the turn and river');
-  assert.deepEqual([btn.faced,btn.folds,btn.chances,btn.aggr],[1,0,3,0],'called the flop bet');
-  assert.deepEqual([bb.faced,bb.folds,bb.chances,bb.aggr],[1,0,0,0],'called all in for less: no chance to raise');
+  assert.deepEqual([sb.chances,sb.aggr],[1,1],'bet the flop');
+  assert.deepEqual([bb.faced,bb.folds,bb.chances,bb.aggr],[1,0,0,0],'called all in for less: a call, with no chance to raise');
+  // a hand that starts with 20 big blinds or less is not counted at all
+  const s=E.table(3);s.bbSeat=0;s.players[2].chips=300;
+  await E.playHand(s,{decide:(p,o)=>p.id===2&&s.street===1&&o.canRaise?{type:'raise',to:100}:o.toCall?{type:'call'}:{type:'check'}});
+  assert.deepEqual(s.players[2].seen,{hands:0,vpip:0,pfr:0,chances:0,aggr:0,faced:0,folds:0});
 });
 
 test('a player who bets whenever they can is read with weaker hands behind a flop bet',()=>{
@@ -283,6 +290,19 @@ test('the AI bluffs players who fold too much and value-bets thinner against pla
   const air=[bets('7h 6h',folder),bets('7h 6h',caller)],thin=[bets('Ah 4h',caller),bets('Ah 4h',{})];
   assert.ok(air[0]>air[1]+15,`seven-six high: ${air[0]}/60 bets against a folder, ${air[1]}/60 against a caller`);
   assert.ok(thin[0]>thin[1]+10,`bottom pair: ${thin[0]}/60 bets against a caller, ${thin[1]}/60 against someone unknown`);
+});
+
+test('in a three-way pot the AI only stabs more when everyone folds too much',()=>{
+  // seven-six high, checked to on a K-9-4 flop by two players
+  const bets=seen=>{let n=0;for(let seed=1;seed<=60;seed++){const t=E.table(3,seed);E.startHand(t);E.positions(t);
+    const p=t.players[0];p.ch=DAVID;p.cards=cs('7h 6h');t.players[1].cards=cs('2c 3d');t.players[2].cards=cs('Jc 2s');
+    t.board=cs('Kd 9s 4c');t.street=1;t.pot=400;t.players.forEach(q=>q.bet=0);t.currentBet=0;
+    t.acts=[{id:1,st:1,type:'check',to:0,prev:0},{id:2,st:1,type:'check',to:0,prev:0}];
+    seen.forEach((s,i)=>Object.assign(t.players[i+1].seen,s));
+    const o={toCall:0,canRaise:true,minTo:t.bb,maxTo:p.chips};if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='check')n++;}return n;};
+  const F={faced:40,folds:36},C={faced:40,folds:4};
+  const typical=bets([{},{}]),mixed=bets([F,C]),folders=bets([F,F]);
+  assert.ok(Math.abs(mixed-typical)<=6&&folders>=typical+30,`typical ${typical}/60, a folder and a caller ${mixed}/60, two folders ${folders}/60`);
 });
 
 test('bet sizes do not give the hand away: bluffs and value bets use the same sizes',()=>{

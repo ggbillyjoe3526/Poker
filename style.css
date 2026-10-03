@@ -102,7 +102,7 @@ kbd{font-family:inherit}
 .atag.blind{color:var(--muted)}
 .stamp{display:none;position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:16px;font-weight:700;align-items:center;justify-content:center}
 .seat.out .stamp{display:flex}
-.seat.out{opacity:.45}
+.seat.out>:not(.tip){opacity:.45}
 .seat.folded .pframe,.seat.folded .nameplate{opacity:.62}
 .thinking{position:absolute;right:-4px;top:-4px;z-index:6;background:var(--surface);border-radius:12px;padding:6px 8px;display:none;gap:3px;box-shadow:var(--shadow)}
 .seat.is-thinking .thinking{display:flex}
@@ -113,7 +113,7 @@ kbd{font-family:inherit}
 .bubble.on{opacity:1}
 /* style tip: point at (or tab to) an opponent's name */
 .nameplate{pointer-events:auto;cursor:help;outline:none}
-.nameplate:focus-visible{border-color:var(--accent)}
+.nameplate:focus-visible{outline:2px dashed var(--muted);outline-offset:3px}
 .tip{position:absolute;top:178px;left:50%;transform:translateX(-50%);z-index:10;width:250px;background:var(--surface);color:var(--text);border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);font-size:13px;line-height:1.4;display:none;flex-direction:column;gap:4px;pointer-events:none}
 .tip b{font-size:15px}
 .tip-seen{font-style:normal;color:var(--muted)}

@@ -7,20 +7,24 @@
 // A tournament is seeded, so the same count always gives the same numbers.
 const E=require('../tests/load.js');
 
-// one tournament: `players` are {ch, diff}; returns each player's finishing place (1 = winner)
-async function tournament(players,seed){
+// one tournament: `players` are {ch, diff}; returns each player's finishing place (1 = winner), and
+// fills `seen` with what the table counted of each player's play
+async function tournament(players,seed,seen=[]){
   const t=E.initTable({},players.map(p=>({name:p.ch.name,ch:p.ch,diff:p.diff})),E.mulberry32(seed),E.mulberry32(seed^0x5bd1e995));
   const io={decide:(p,o)=>E.aiDecide(t,p,o)};
   while(E.aliveList(t).length>1&&t.handNo<3000){await E.playHand(t,io);E.eliminate(t);}
+  t.players.forEach((p,i)=>seen[i]=p.seen);
   return t.players.map(p=>p.out?p.place:1);
 }
 
-// six of the eight personalities each time, all on one level
+// six of the eight personalities each time, all on one level: how each places, and how each plays
+// (the same counts the opponents keep on each other, so the style hints can be checked against them)
 async function styles(n,diff='normal',from=1){
-  const S=Object.fromEntries(E.ROSTER.map(ch=>[ch.name,{games:0,place:0,wins:0}]));
+  const S=Object.fromEntries(E.ROSTER.map(ch=>[ch.name,{games:0,place:0,wins:0,seen:{}}]));
   for(let seed=from;seed<from+n;seed++){
-    const chs=E.shuffle(E.ROSTER.slice(),E.mulberry32(seed*31+7)).slice(0,6);
-    (await tournament(chs.map(ch=>({ch,diff})),seed)).forEach((pl,i)=>{const s=S[chs[i].name];s.games++;s.place+=pl;if(pl===1)s.wins++;});
+    const chs=E.shuffle(E.ROSTER.slice(),E.mulberry32(seed*31+7)).slice(0,6),seen=[];
+    (await tournament(chs.map(ch=>({ch,diff})),seed,seen)).forEach((pl,i)=>{const s=S[chs[i].name];s.games++;s.place+=pl;if(pl===1)s.wins++;
+      for(const k in seen[i])s.seen[k]=(s.seen[k]||0)+seen[i][k];});
   }
   return S;
 }
@@ -66,8 +70,12 @@ if(require.main===module)(async()=>{
   if(what==='all'||what==='styles'){
     const S=await styles(n);
     console.log(`Personalities on Normal, ${n} tournaments of six (fair share: place 3.50, wins 16.7%)`);
-    for(const[name,s] of Object.entries(S).sort((x,y)=>x[1].place/x[1].games-y[1].place/y[1].games))
-      console.log(`  ${name.padEnd(8)} place ${(s.place/s.games).toFixed(2)}  wins ${(s.wins/s.games*100).toFixed(1).padStart(4)}%  (${s.games} games)`);
+    console.log('  how they play: share of hands played and raised before the flop; bets or raises per chance and folds per bet faced after it');
+    const pc=(a,b)=>(Math.round(a/b*100)+'%').padStart(4);
+    for(const[name,s] of Object.entries(S).sort((x,y)=>x[1].place/x[1].games-y[1].place/y[1].games)){const v=s.seen;
+      console.log(`  ${name.padEnd(8)} place ${(s.place/s.games).toFixed(2)}  wins ${(s.wins/s.games*100).toFixed(1).padStart(4)}%  (${s.games} games)`+
+        `   plays ${pc(v.vpip,v.hands)} raises ${pc(v.pfr,v.hands)} bets ${pc(v.aggr,v.chances)} folds ${pc(v.folds,v.faced)}`);
+    }
   }
   if(what==='all'||what==='levels'){
     console.log(`Difficulty levels head to head, ${n} tournaments each (average place, lower is better)`);
