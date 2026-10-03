@@ -24,12 +24,16 @@ function aiDecide(t,p,o){
     const po=toCall/(pot+toCall);
     return eq>po+0.03-A.sticky*0.06?{type:'call'}:{type:'fold'};
   }
-  const betFrac=f=>t.currentBet+Math.round(f*(pot+toCall));
+  // value bets and bluffs are sized alike (aggressive players bet bigger, and every size is mixed), so the
+  // size never gives the hand away; only the opponents shift it: bigger into players who call everything
+  const fold=opps.reduce((a,q)=>a+tendency(q).fold,0)/nOpp,lean=fold-TYPICAL.fold;
+  const betTo=()=>raiseTo(t.currentBet+Math.round((pot+toCall)*clamp((0.3+A.aggr*0.4+R()*0.5)*(1-lean),0.25,1.5)));
   if(toCall===0){
+    // players who fold too much get bluffed more; ones who call everything get thinner value bets
     if(o.canRaise){
-      if(r>1.45-A.aggr*0.3-(ip?0.1:0)){if(r>1.9&&R()<A.trap&&st<3)return{type:'check'};return raiseTo(betFrac(0.42+A.aggr*0.4+R()*0.25));}
-      if(r<0.9&&nOpp<=2&&R()<A.bluff*(ip?0.55:0.35)){p.bluffing=true;return raiseTo(betFrac(0.5+R()*0.45));}
-      if(R()<A.aggr*0.1)return raiseTo(betFrac(0.35));
+      if(r>1.45-A.aggr*0.3-(ip?0.1:0)+clamp(lean,-0.25,0.25)*0.5){if(r>1.9&&R()<A.trap&&st<3)return{type:'check'};return betTo();}
+      if(r<0.9&&nOpp<=2&&R()<A.bluff*(ip?0.55:0.35)*clamp((fold/TYPICAL.fold)**2,0.3,2.5)){p.bluffing=true;return betTo();}
+      if(R()<A.aggr*0.1+Math.max(0,lean)*(1+A.aggr))return betTo(); // a stab, far more often at players who give up
     }
     return{type:'check'};
   }
@@ -38,8 +42,9 @@ function aiDecide(t,p,o){
   if(toCall>pot*0.6)need+=0.05;
   if(toCall>=stack)need+=0.06-A.sticky*0.05;
   if(o.canRaise&&t.streetRaises<3){
-    if(r>1.75-A.aggr*0.3&&R()<0.35+A.aggr*0.5){if(r>1.9&&R()<A.trap*0.6&&st<3)return{type:'call'};return raiseTo(t.currentBet+Math.round((pot+toCall)*(0.6+R()*0.4)));}
-    if(r<0.8&&nOpp===1&&st<3&&R()<A.bluff*0.12){p.bluffing=true;return raiseTo(t.currentBet*2.6);}
+    const raise=()=>raiseTo(t.currentBet+Math.round((pot+toCall)*(0.6+R()*0.4)));
+    if(r>1.75-A.aggr*0.3&&R()<0.35+A.aggr*0.5){if(r>1.9&&R()<A.trap*0.6&&st<3)return{type:'call'};return raise();}
+    if(r<0.8&&nOpp===1&&st<3&&R()<A.bluff*0.12*clamp(tendency(opps[0]).fold/TYPICAL.fold,0.5,2)){p.bluffing=true;return raise();}
   }
   if(eq+noise*0.15>=need)return{type:'call'};
   return{type:'fold'};
@@ -61,9 +66,12 @@ function unopened(t,p,o,A,R,raiseTo){
     if(top<0.12*(1+A.aggr)*style)return raiseTo(bb*(3.5+limpers));
     return{type:'check'};
   }
-  const width=openWidth(t,p.id)*style,open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
+  // the tighter the players still to act, the more often a raise just wins the blinds
+  const rest=[];for(let j=p.id;j!==t.bbSeat&&rest.length<t.players.length;){j=nextAlive(t,j);rest.push(t.players[j]);}
+  const steal=clamp(TYPICAL.vpip*rest.length/rest.reduce((a,q)=>a+tendency(q).vpip,0),0.6,2);
+  const width=openWidth(t,p.id)*style*(behind<=3?clamp(steal,0.8,1.5):1),open=()=>raiseTo(bb*(2.2+R()*0.6+limpers));
   if(top<width)return top<0.05||R()<0.35+A.aggr*0.7?open():{type:'call'}; // a passive player sometimes limps instead
-  if(behind<=2&&R()<A.bluff*0.15){p.bluffing=true;return open();} // a steal from late position
+  if(behind<=2&&R()<A.bluff*0.15*steal*steal){p.bluffing=true;return open();} // a steal from late position
   if(limpers&&top<width*1.5)return{type:'call'}; // join the limpers with a playable hand
   return fold;
 }
@@ -89,7 +97,10 @@ function facingRaise(t,p,o,A,R,raiseTo){
   // calling with chips behind: weaker hands win less than their equity once the betting continues
   const spr=(p.chips-toCall)/(pot+toCall);
   const need=toCall/(pot+toCall)+waiting*0.03+(oop?0.03:0)+(raises>=2?0.08:0.02)*Math.min(1,spr/3)-A.sticky*0.06-A.loose*0.04;
-  if(o.canRaise&&raises<4&&eq*(n+1)>1.3-A.aggr*0.15)return raiseTo(t.currentBet*(raises>=2?2.3:oop?3.4:3)+(R()-0.5)*bb);
-  if(o.canRaise&&raises===1&&!oop&&top>0.08&&top<0.3&&R()<A.bluff*0.2){p.bluffing=true;return raiseTo(t.currentBet*3);}
+  // the same size for value and bluffs, a bit bigger for each player who already called (a squeeze)
+  const callers=inPot.filter(q=>q.bet===t.currentBet&&!t.acts.some(a=>a.id===q.id&&a.to===t.currentBet&&a.to>a.prev)).length;
+  const reraise=()=>raiseTo(t.currentBet*((raises>=2?2.3:oop?3.4:3)+callers)+(R()-0.5)*bb);
+  if(o.canRaise&&raises<4&&eq*(n+1)>1.3-A.aggr*0.15)return reraise();
+  if(o.canRaise&&raises===1&&!oop&&top>0.08&&top<0.3&&R()<A.bluff*0.2){p.bluffing=true;return reraise();}
   return eq>=need?{type:'call'}:{type:'fold'};
 }

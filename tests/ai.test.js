@@ -199,3 +199,45 @@ test('limpers make a short stack shove tighter',()=>{
   const acts=[{id:3,type:'call',to:20},{id:4,type:'call',to:20},...folds([5])];
   assert.ok(!decide({hole:'Qc 8d',seat:0,bbs:9,acts}).allin,'a 9 BB button does not shove queen-eight over two limpers');
 });
+
+/* ---------------- habits and bet sizes ---------------- */
+test('the table keeps count of how each player plays',async()=>{
+  const t=E.table(3);t.bbSeat=0; // seat 0 posts the small blind, seat 1 the big blind, seat 2 has the button
+  await E.playHand(t,{decide:(p,o)=>{
+    if(p.id===0)return t.street===0?{type:'raise',to:60}:o.toCall?{type:'call'}:{type:'raise',to:t.currentBet+40};
+    return t.street===0?{type:'call'}:o.toCall?{type:'fold'}:{type:'check'};
+  }});
+  const seen=t.players.map(p=>p.seen);
+  assert.deepEqual(seen[0],{hands:1,vpip:1,pfr:1,aggr:1,calls:0,faced:0,folds:0},'raised, then bet the flop');
+  assert.deepEqual([seen[1].vpip,seen[1].pfr,seen[1].faced,seen[1].folds],[1,0,1,1],'called, then folded to the bet');
+  assert.equal(seen[2].hands,1);
+});
+
+test("a player who raises every hand is read with a wider raising range than one who rarely does",()=>{
+  const t=E.table(6);t.bbSeat=1;E.startHand(t);E.positions(t);
+  const q=t.players[3];t.acts=[{id:3,st:0,type:'raise',to:60,prev:20}];
+  const read=(hands,pfr)=>{Object.assign(q.seen,{hands,vpip:pfr,pfr});return avgStrength(E.readRange(t,q));};
+  const maniac=read(40,38),typical=read(0,0),nit=read(40,3);
+  assert.ok(maniac<typical&&typical<nit,`${maniac} < ${typical} < ${nit}`);
+});
+
+test('the AI bluffs players who fold too much and value-bets thinner against players who never fold',()=>{
+  // tight David, checked to on the flop with a pot of 400
+  const bets=(hole,seen)=>{let n=0;for(let seed=1;seed<=60;seed++){
+    const{t,p,o}=spot({hole,villain:'2c 3d',board:'Kd 9s 4c',acts:[{id:1,st:1,type:'check',to:0,prev:0}],pot:400,seed,ch:DAVID});
+    Object.assign(t.players[1].seen,seen);if(E.checkLegal(o,E.aiDecide(t,p,o)).type!=='check')n++;}return n;};
+  const folder={faced:40,folds:36},caller={faced:40,folds:4};
+  const air=[bets('7h 6h',folder),bets('7h 6h',caller)],thin=[bets('Ah 4h',caller),bets('Ah 4h',{})];
+  assert.ok(air[0]>air[1]+15,`seven-six high: ${air[0]}/60 bets against a folder, ${air[1]}/60 against a caller`);
+  assert.ok(thin[0]>thin[1]+10,`bottom pair: ${thin[0]}/60 bets against a caller, ${thin[1]}/60 against someone unknown`);
+});
+
+test('bet sizes do not give the hand away: bluffs and value bets use the same sizes',()=>{
+  const sizes=hole=>{const out=[];for(let seed=1;seed<=400;seed++){
+    const{t,p,o}=spot({hole,villain:'2c 3d',board:'Kd 9s 4c',acts:[{id:1,st:1,type:'check',to:0,prev:0}],pot:400,seed,ch:E.ROSTER[1]});
+    const a=E.checkLegal(o,E.aiDecide(t,p,o));if(a.type==='raise')out.push(a.to/400);}return out;};
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length,value=sizes('Kh Ks'),bluff=sizes('7h 6h');
+  assert.ok(value.length>50&&bluff.length>20,`${value.length} value bets, ${bluff.length} bluffs`);
+  assert.ok(Math.abs(mean(value)-mean(bluff))<0.08,`value ${mean(value)} vs bluff ${mean(bluff)}`);
+  assert.ok(new Set(value.map(v=>Math.round(v*4))).size>=3,'and value bets come in several sizes');
+});

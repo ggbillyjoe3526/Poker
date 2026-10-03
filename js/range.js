@@ -61,8 +61,18 @@ const openWidth=(t,i)=>{const n=seatsToAct(t,i);return n&&aliveList(t).length===
 const PUSH10=[0.4,0.62,0.4,0.3,0.22,0.17];
 const pushWidth=(bbs,behind,limpers=0)=>Math.min(1,PUSH10[Math.min(behind,5)]*(10/bbs)**0.78*0.75**Math.max(0,limpers-(behind?0:1)));
 
-// what player q probably holds, from their actions this hand as recorded in t.acts
+// q's habits over the game so far, each pulled toward a typical player until enough hands are seen
+const TYPICAL={vpip:0.35,pfr:0.19,agg:0.67,fold:0.52}; // roughly how the computer players themselves play
+function tendency(q){
+  const s=q.seen,est=(n,d,typ,k)=>(n+typ*k)/(d+k);
+  return{vpip:est(s.vpip,s.hands,TYPICAL.vpip,40),pfr:est(s.pfr,s.hands,TYPICAL.pfr,40),
+    agg:est(s.aggr,s.aggr+s.calls,TYPICAL.agg,10),fold:est(s.folds,s.faced,TYPICAL.fold,10)};
+}
+
+// what player q probably holds, from their actions this hand as recorded in t.acts, read in the light
+// of their habits: a player who raises every hand has a wide raising range
 function readRange(t,q){
+  const T=tendency(q),loose=clamp(T.vpip/TYPICAL.vpip,0.6,2.5),raisy=clamp(T.pfr/TYPICAL.pfr,0.6,3),wild=clamp(T.agg/TYPICAL.agg,0.5,2.5);
   // before the flop the narrowest thing q showed sets the range (a 4-bet already implies the open)
   let width=1,trap=0,raises=0,limps=0;
   for(const a of t.acts){
@@ -76,7 +86,8 @@ function readRange(t,q){
       const allin=a.type==='allin'&&aggr,jam=allin&&stackBB<=20;
       const w=aggr?Math.max(raises?(k>1?0.04:0.09):allin?0.09:openWidth(t,q.id),jam?(raises?Math.min(1,2.5/stackBB):pushWidth(stackBB,seatsToAct(t,q.id),limps)):0)
         :[0.45,0.25,0.1][k];
-      if(w<width){width=w;trap=aggr?0:[0.08,0.04,0][k];} // a call leaves out some strong hands that would have raised
+      const seen=jam?w:Math.min(1,w*(aggr?raisy:loose)); // a short stack's jam follows the chart, not habits
+      if(seen<width){width=seen;trap=aggr?0:[0.08,0.04,0][k];} // a call leaves out some strong hands that would have raised
     }
     if(aggr)raises++;
   }
@@ -89,12 +100,16 @@ function readRange(t,q){
     for(let i=0;i<1326;i++){
       const s=str[i];
       if(a.type==='check')post[i]*=1-0.5*ramp(s,0.75,1);                          // strong hands usually bet
-      else if(aggr)post[i]*=a.prev>0?0.1+0.9*ramp(s,0.6,0.95)**1.5:0.15+0.85*ramp(s,0.45,0.9)**1.5; // a raise shows more than a bet
+      else if(aggr){ // a raise shows more than a bet, and a habitual bettor's bets show less
+        const f=a.prev>0?0.1+0.9*ramp(s,0.6,0.95)**1.5:0.15+0.85*ramp(s,0.45,0.9)**1.5;
+        post[i]*=f+(1-f)*clamp((wild-1)*0.3,0,0.45);
+      }
       else post[i]*=(0.1+0.9*ramp(s,0.25,0.65))*(1-0.3*ramp(s,0.9,1));             // calls: middling hands and draws
     }
   }
-  // however much they have bet, some of it can still be a bluff
-  for(let i=0;i<1326;i++)w[i]*=Math.max(post[i],0.04);
+  // however much they have bet, some of it can still be a bluff (more of it for an aggressive player)
+  const floor=0.04*wild*wild;
+  for(let i=0;i<1326;i++)w[i]*=Math.max(post[i],floor);
   return w;
 }
 

@@ -15,7 +15,8 @@ function potTotal(t){return t.pot+t.players.reduce((a,p)=>a+p.bet,0);}
 // rng deals the cards, aiRng drives opponent decisions: keeping them apart means a seed always deals
 // the same cards, whatever anyone does
 function initTable(t,players,rng,aiRng){
-  players.forEach((p,i)=>Object.assign(p,{id:i,chips:START_STACK,cards:[],bet:0,total:0,folded:false,allIn:false,out:false,lastRaiseId:-1,place:0}));
+  players.forEach((p,i)=>Object.assign(p,{id:i,chips:START_STACK,cards:[],bet:0,total:0,folded:false,allIn:false,out:false,lastRaiseId:-1,place:0,
+    seen:{hands:0,vpip:0,pfr:0,aggr:0,calls:0,faced:0,folds:0}})); // what the table has seen of each player
   Object.assign(t,{players,rng,aiRng,handNo:0,level:0,dealer:-1,bbSeat:null,pot:0,board:[],boardCards:[],street:0,
     currentBet:0,minRaise:0,raiseId:0,streetRaises:0,runout:false,acts:[]});
   [t.sb,t.bb]=BLINDS[0];
@@ -28,7 +29,7 @@ function startHand(t){
   const lvl=Math.min(BLINDS.length-1,Math.floor((t.handNo-1)/HANDS_PER_LEVEL)),lvlUp=lvl!==t.level;
   t.level=lvl;[t.sb,t.bb]=BLINDS[lvl];
   Object.assign(t,{pot:0,board:[],boardCards:[],street:0,streetRaises:0,runout:false,acts:[]});
-  for(const p of t.players)Object.assign(p,{startChips:p.chips,cards:[],bet:0,total:0,folded:p.out,allIn:false,lastRaiseId:-1,bluffing:false,score:0});
+  for(const p of t.players){Object.assign(p,{startChips:p.chips,cards:[],bet:0,total:0,folded:p.out,allIn:false,lastRaiseId:-1,bluffing:false,score:0});if(!p.out&&p.chips>20*t.bb)p.seen.hands++;}
   return lvlUp;
 }
 function positions(t){
@@ -123,8 +124,24 @@ function applyAction(t,p,act,o){
     if(p.bet>t.currentBet){const inc=p.bet-t.currentBet;if(inc>=t.minRaise){t.minRaise=inc;t.raiseId++;}t.currentBet=p.bet;t.streetRaises++;}
   }
   p.lastRaiseId=t.raiseId;
+  tally(t,p,type,p.bet>ev.prev,o);
   t.acts.push({id:p.id,st:t.street,type,to:p.bet,prev:ev.prev}); // the hand's public action history
   return ev;
+}
+
+// counts p's habits for the rest of the table to read: how often they play and raise before the flop,
+// bet or call after it, and fold when bet into
+function tally(t,p,type,aggr,o){
+  const s=p.seen;
+  if(t.street===0){ // once per hand each: put money in voluntarily, raised (deep hands only: short ones are push/fold)
+    if(p.startChips<=20*t.bb)return;
+    const mine=t.acts.filter(a=>a.id===p.id&&a.st===0);
+    if(type!=='fold'&&type!=='check'&&!mine.some(a=>a.type!=='check'))s.vpip++;
+    if(aggr&&!mine.some(a=>a.to>a.prev))s.pfr++;
+    return;
+  }
+  if(o.toCall>0){s.faced++;if(type==='fold')s.folds++;}
+  if(aggr)s.aggr++;else if(type!=='fold'&&type!=='check')s.calls++;
 }
 
 /* ---------------- SHOWDOWN / AWARDS ---------------- */

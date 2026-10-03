@@ -7,7 +7,7 @@ const NAMES=['mulberry32','shuffle','evalHand','handCat','describe','bestFive','
   'START_STACK','HANDS_PER_LEVEL','BLINDS','ROSTER','YOU_CH','STREET_CARDS',
   'inHandList','canActList','aliveList','potTotal','initTable','startHand','positions','playHand','put','turnOptions',
   'applyAction','computePots','splitPot','resolveHand','eliminate','aiDecide',
-  'COMBOS','preStrength','boardStrength','readRange','rangeEquity','seatsToAct','pushWidth'];
+  'COMBOS','preStrength','boardStrength','readRange','rangeEquity','seatsToAct','pushWidth','tendency','TYPICAL'];
 const src=FILES.map(f=>fs.readFileSync(path.join(__dirname,'..','js',f),'utf8')).join('\n;\n');
 module.exports=new Function(`${src}\nreturn {${NAMES.join(',')}};`)();
 
